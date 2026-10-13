@@ -17,7 +17,8 @@ from litellm._logging import verbose_proxy_logger
 from litellm.proxy.control_plane.dataplanes.credentials import Caller, CredentialKind, CredentialUnavailable
 from litellm.proxy.control_plane.dataplanes.registry import Dataplane
 
-Method: TypeAlias = Literal["GET", "POST", "PUT", "PATCH", "DELETE"]
+Method: TypeAlias = Literal["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"]
+WRITE_METHODS: Final = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 Sleeper: TypeAlias = Callable[[float], Awaitable[None]]
 RETRYABLE_STATUSES: Final = frozenset({502, 503, 504})
 _JSON: Final = TypeAdapter(object)
@@ -44,6 +45,10 @@ class DataplaneReply:
     status: int
     body: object
     credential: CredentialKind
+    raw_content: bytes | None = None
+    content_type: str | None = None
+    content_disposition: str | None = None
+    cache_control: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +64,10 @@ CallResult: TypeAlias = DataplaneReply | DataplaneUnreachable | CredentialUnavai
 class _RawReply:
     status: int
     body: object
+    raw_content: bytes | None
+    content_type: str | None
+    content_disposition: str | None
+    cache_control: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +108,18 @@ class DataplaneClient:
     async def post(self, dataplane: Dataplane, path: str, caller: Caller, json: Mapping[str, object]) -> CallResult:
         return await self._call("POST", dataplane, path, caller, params=None, json=json)
 
+    async def request(
+        self,
+        method: Method,
+        dataplane: Dataplane,
+        path: str,
+        caller: Caller,
+        params: Sequence[tuple[str, str]] | None = None,
+        json: Mapping[str, object] | None = None,
+    ) -> CallResult:
+        """Any management verb. Only GET is retried, every write goes out exactly once."""
+        return await self._call(method, dataplane, path, caller, params=params, json=json)
+
     async def _call(
         self,
         method: Method,
@@ -119,7 +140,15 @@ class DataplaneClient:
         return (
             outcome
             if isinstance(outcome, DataplaneUnreachable)
-            else DataplaneReply(outcome.status, outcome.body, credential.kind)
+            else DataplaneReply(
+                outcome.status,
+                outcome.body,
+                credential.kind,
+                outcome.raw_content,
+                outcome.content_type,
+                outcome.content_disposition,
+                outcome.cache_control,
+            )
         )
 
     async def _attempt(
@@ -159,7 +188,17 @@ class DataplaneClient:
         except httpx.HTTPError as error:
             verbose_proxy_logger.debug("Control-plane dataplane transport failed: %s", error)
             return DataplaneUnreachable(_describe(error), attempts=1)
-        return _RawReply(response.status_code, _parse_body(response))
+        content_type: Final = response.headers.get("content-type")
+        is_json: Final = content_type is not None and "json" in content_type.lower()
+        preserve_raw: Final = not is_json
+        return _RawReply(
+            response.status_code,
+            _parse_body(response),
+            response.content if preserve_raw else None,
+            content_type if preserve_raw else None,
+            response.headers.get("content-disposition") if preserve_raw else None,
+            response.headers.get("cache-control"),
+        )
 
 
 def _describe(error: httpx.HTTPError) -> str:

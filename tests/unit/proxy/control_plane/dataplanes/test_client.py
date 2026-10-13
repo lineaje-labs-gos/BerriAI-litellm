@@ -106,7 +106,7 @@ async def test_post_is_never_retried_and_client_errors_are_replies_not_failures(
     result: Final = await _client(transport, clock).post(
         _dataplane(), "/key/generate", caller("session"), json={"a": 1}
     )
-    assert result == DataplaneReply(502, "", "service_token")
+    assert result == DataplaneReply(502, "", "service_token", raw_content=b"")
     assert len(transport.calls) == 1 and clock.slept == []
     forbidden: Final = FakeTransport(iter([_response(403, {"error": "no"})]))
     denied: Final = await _client(forbidden, clock).get(_dataplane(), "/x", caller("session"))
