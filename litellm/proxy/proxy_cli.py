@@ -35,6 +35,8 @@ from litellm.types.llms.base import LiteLLMBaseModel
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
+
+    from litellm.proxy.control_plane.main import Tls
 else:
     FastAPI = Any
 
@@ -883,6 +885,31 @@ class ProxyInitializationHelpers:
     _maybe_setup_prometheus_multiproc_dir = maybe_setup_prometheus_multiproc_dir
 
 
+def control_plane_requested(control_plane: bool, skip_server_startup: bool, utility_command: bool = False) -> bool:
+    """A migration job or a utility command (--version, --validate_config, --health, --test) inherits the
+    deployment's LITELLM_CONTROL_PLANE, so --skip_server_startup and those commands must win over it."""
+    return control_plane and not skip_server_startup and not utility_command
+
+
+def _decrypt_kms_env_vars() -> None:
+    if os.getenv("USE_AWS_KMS") != "True":
+        return
+    from litellm.secret_managers.aws_secret_manager import decrypt_env_var
+
+    for key, value in decrypt_env_var().items():
+        os.environ[key] = value
+
+
+def control_plane_tls(ssl_keyfile_path: str | None, ssl_certfile_path: str | None) -> "Tls | None":
+    from litellm.proxy.control_plane.main import Tls
+
+    if ssl_keyfile_path is None and ssl_certfile_path is None:
+        return None
+    if ssl_keyfile_path is None or ssl_certfile_path is None:
+        raise click.UsageError("--control-plane needs both --ssl_keyfile_path and --ssl_certfile_path for TLS")
+    return Tls(keyfile=ssl_keyfile_path, certfile=ssl_certfile_path)
+
+
 @click.command()
 @click.argument("cli_args", nargs=-1)
 @click.option("--host", default="0.0.0.0", help="Host for the server to listen on.", envvar="HOST")
@@ -1179,6 +1206,17 @@ class ProxyInitializationHelpers:
     envvar="USE_V2_MIGRATION_RESOLVER",
 )
 @click.option(
+    "--control-plane",
+    "control_plane",
+    is_flag=True,
+    default=False,
+    envvar="LITELLM_CONTROL_PLANE",
+    help=(
+        "Serve the global control plane API instead of the proxy, on the same image. Enterprise only, "
+        "refuses to start without LITELLM_LICENSE. Configure with CONTROL_PLANE_* env vars."
+    ),
+)
+@click.option(
     "--use_legacy_migration_resolver",
     is_flag=True,
     default=False,
@@ -1210,8 +1248,8 @@ class ProxyInitializationHelpers:
 )
 def run_server(
     cli_args,
-    host,
-    port,
+    host: str,
+    port: int,
     api_base,
     api_version,
     model,
@@ -1261,6 +1299,7 @@ def run_server(
     use_legacy_migration_resolver: bool,
     reload: bool,
     prometheus_metrics_port: int | None,
+    control_plane: bool,
 ):
     if cli_args:
         if cli_args == ("xai-oauth", "login"):
@@ -1278,6 +1317,26 @@ def run_server(
         from litellm.setup_wizard import run_setup_wizard
 
         run_setup_wizard()
+        return
+    utility_command: Final = bool(
+        version or validate_config or health or test or check_migrations_against_existing_data
+    )
+    if control_plane_requested(control_plane, skip_server_startup, utility_command):
+        if num_workers > 1:
+            raise click.UsageError("scale the control plane with replicas.")
+        from litellm.proxy.control_plane.main import serve
+
+        if run_gunicorn or run_hypercorn or run_granian or reload:
+            raise click.UsageError(
+                "--control-plane serves with plain uvicorn, drop --run_gunicorn, --run_hypercorn, --run_granian and --reload"
+            )
+        _decrypt_kms_env_vars()
+        serve(
+            host=host,
+            port=port,
+            tls=control_plane_tls(ssl_keyfile_path, ssl_certfile_path),
+            limit_concurrency=limit_concurrency,
+        )
         return
 
     args: Final = locals()
@@ -1383,17 +1442,7 @@ def run_server(
         if wants_rds_iam or wants_azure_entra:
             DatabaseURLSettings.from_env().apply_writer_url_to_env()
 
-        ### DECRYPT ENV VAR ###
-
-        from litellm.secret_managers.aws_secret_manager import decrypt_env_var
-
-        if os.getenv("USE_AWS_KMS", None) is not None and os.getenv("USE_AWS_KMS") == "True":
-            ## V2 IMPLEMENTATION OF AWS KMS - USER WANTS TO DECRYPT MULTIPLE KEYS IN THEIR ENV
-            new_env_var: Final = decrypt_env_var()
-
-            for k, v in new_env_var.items():
-                os.environ[k] = v
-
+        _decrypt_kms_env_vars()
         litellm_settings = None
         env_config_file: Final = os.environ.get("CONFIG_FILE_PATH")
         if (
