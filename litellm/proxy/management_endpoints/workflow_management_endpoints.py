@@ -57,8 +57,8 @@ def _read_scope_caller(user_api_key_dict: UserAPIKeyAuth) -> UserAPIKeyAuth | No
 
 
 def _caller_key(user_api_key_dict: UserAPIKeyAuth) -> str | None:
-    """Return the hashed key token that identifies this caller, or None for master key."""
-    return user_api_key_dict.token
+    """Return the hashed key token when it identifies the caller's own scope."""
+    return None if user_api_key_dict.impersonated_by is not None else user_api_key_dict.token
 
 
 # Status transitions driven by event_type
@@ -283,8 +283,7 @@ async def list_workflow_runs(
     # Non-admin callers are scoped to their own key.
     if not user_api_key_has_admin_view(user_api_key_dict):
         caller: Final = _caller_key(user_api_key_dict)
-        if caller:
-            where["created_by"] = caller
+        where["created_by"] = caller or ""
 
     try:
         runs: Final[Sequence[object]] = await WorkflowRunRepository(prisma_client).table.find_many(
