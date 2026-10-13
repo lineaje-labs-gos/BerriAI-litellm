@@ -51,3 +51,22 @@ def test_credentials_at_the_bound_are_accepted() -> None:
         }
     )
     assert settings.ui_username is not None and len(settings.ui_username) == USERNAME_MAX_LENGTH
+
+
+def test_fanout_concurrency_must_be_positive() -> None:
+    with pytest.raises(ValidationError):
+        ControlPlaneSettings.model_validate({"LITELLM_MASTER_KEY": MASTER_KEY, "fanout_concurrency": 0})
+
+
+def test_master_key_minimum_length_uses_utf8_bytes() -> None:
+    with pytest.raises(ValidationError):
+        ControlPlaneSettings.model_validate({"LITELLM_MASTER_KEY": "é" * 15 + "x"})
+    settings: Final = ControlPlaneSettings.model_validate({"LITELLM_MASTER_KEY": "é" * 16})
+    assert len(settings.master_key.get_secret_value().encode("utf-8")) == 32
+
+
+def test_usage_window_maximum_is_configurable() -> None:
+    settings: Final = ControlPlaneSettings.model_validate(
+        {"LITELLM_MASTER_KEY": MASTER_KEY, "usage_max_window_days": 12}
+    )
+    assert settings.usage_max_window_days == 12
