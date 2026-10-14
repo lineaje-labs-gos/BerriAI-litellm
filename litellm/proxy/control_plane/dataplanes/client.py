@@ -7,13 +7,15 @@ a management passthrough can tolerate. Retrying is this module's job and only ev
 import asyncio
 import random
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Final, Literal, Protocol, TypeAlias
 
 import httpx
 from pydantic import TypeAdapter
 
 from litellm._logging import verbose_proxy_logger
+from litellm.proxy.control_plane.audit.log import redact_path
+from litellm.proxy.control_plane.common.tracing import DataplaneTarget, SpanRecorder, Untraced
 from litellm.proxy.control_plane.dataplanes.credentials import Caller, CredentialKind, CredentialUnavailable
 from litellm.proxy.control_plane.dataplanes.registry import Dataplane
 
@@ -95,6 +97,7 @@ class DataplaneClient:
     retry: RetryPolicy = RetryPolicy()
     sleep: Sleeper = asyncio.sleep
     jitter: Callable[[], float] = random.random
+    tracing: SpanRecorder = field(default_factory=Untraced)
 
     async def get(
         self,
@@ -132,11 +135,15 @@ class DataplaneClient:
         credential: Final = await dataplane.credential.headers(caller)
         if isinstance(credential, CredentialUnavailable):
             return credential
-        url: Final = f"{dataplane.url}/{path.lstrip('/')}"
-        attempts: Final = self.retry.attempts if method == "GET" else 1
-        outcome: Final = await self._attempt(
-            method, url, credential.headers, params, json, attempt=0, attempts=attempts
+        target: Final = DataplaneTarget(
+            dataplane_id=dataplane.id,
+            url=f"{dataplane.url}/{path.lstrip('/')}",
+            method=method,
+            path=redact_path(f"/{path.lstrip('/')}"),
+            credential=credential.kind,
         )
+        attempts: Final = self.retry.attempts if method == "GET" else 1
+        outcome: Final = await self._attempt(target, credential.headers, params, json, attempt=0, attempts=attempts)
         return (
             outcome
             if isinstance(outcome, DataplaneUnreachable)
@@ -153,36 +160,39 @@ class DataplaneClient:
 
     async def _attempt(
         self,
-        method: Method,
-        url: str,
+        target: DataplaneTarget,
         headers: Mapping[str, str],
         params: Sequence[tuple[str, str]] | None,
         json: Mapping[str, object] | None,
         attempt: int,
         attempts: int,
     ) -> _RawReply | DataplaneUnreachable:
-        outcome: Final = await self._send(method, url, headers, params, json)
+        with self.tracing.client_span(target, attempt) as span:
+            outcome: Final = await self._send(target, headers, params, json)
+            if isinstance(outcome, _RawReply):
+                span.replied(outcome.status)
+            else:
+                span.failed(outcome.detail.split(":", 1)[0])
         last: Final = attempt + 1 >= attempts
         if last or not _retryable(outcome):
             return outcome if isinstance(outcome, _RawReply) else DataplaneUnreachable(outcome.detail, attempt + 1)
         await self.sleep(self.retry.delay(attempt, self.jitter()))
-        return await self._attempt(method, url, headers, params, json, attempt + 1, attempts)
+        return await self._attempt(target, headers, params, json, attempt + 1, attempts)
 
     async def _send(
         self,
-        method: Method,
-        url: str,
+        target: DataplaneTarget,
         headers: Mapping[str, str],
         params: Sequence[tuple[str, str]] | None,
         json: Mapping[str, object] | None,
     ) -> _RawReply | DataplaneUnreachable:
         try:
             response: Final = await self.transport.request(
-                method,
-                url,
+                target.method,
+                target.url,
                 params=params,
                 json=None if json is None else dict(json),
-                headers=dict(headers),
+                headers=self.tracing.outgoing_headers(headers),
                 timeout=self.timeout_seconds,
             )
         except httpx.HTTPError as error:
