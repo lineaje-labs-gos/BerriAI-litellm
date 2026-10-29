@@ -717,3 +717,15 @@ def test_a_customer_request_with_only_known_fields_is_accepted(
     request_type: type[BaseModel], body: dict[str, object]
 ) -> None:
     assert request_type.model_validate(body).model_dump(exclude_unset=True) == body
+
+
+
+def test_require_key_mcp_access_defined_is_a_validated_bool_setting():
+    from litellm.proxy._types import ConfigGeneralSettings
+
+    assert ConfigGeneralSettings().require_key_mcp_access_defined is None
+    assert ConfigGeneralSettings.model_validate(
+        {"require_key_mcp_access_defined": True}
+    ).require_key_mcp_access_defined is True
+    with pytest.raises(ValidationError):
+        ConfigGeneralSettings.model_validate({"require_key_mcp_access_defined": "not-a-bool"})
