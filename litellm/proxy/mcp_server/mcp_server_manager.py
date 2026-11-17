@@ -442,8 +442,8 @@ class MCPServerConfig(TypedDict, total=False):
     extra_headers: _StringList
     allowed_tools: _StringList
     disallowed_tools: _StringList
-    tool_name_to_display_name: _StringMap
-    tool_name_to_description: _StringMap
+    tool_name_to_display_name: ReadOnly[_StringMap]
+    tool_name_to_description: ReadOnly[_StringMap]
     allowed_params: _ToolParamMap
     access_groups: _StringList
     static_headers: _StringMap
