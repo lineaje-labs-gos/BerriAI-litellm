@@ -56,6 +56,12 @@ from litellm.types.proxy.auth.customer_hierarchy import CustomerHierarchyAuth, C
 from tests._master_key import MASTER_KEY
 from tests.unit.proxy.auth._user_table import UserTable, prisma_over, user_row
 from tests.unit.redis.stores.spend_counters_double import FakeSpendCounters
+from tests.unit.proxy.rust_auth_stores import RustAuthStores, install_rust_auth_stores
+
+
+@pytest.fixture
+def rust_auth_stores(monkeypatch: pytest.MonkeyPatch) -> RustAuthStores:
+    return install_rust_auth_stores(monkeypatch)
 
 
 @pytest.mark.asyncio
@@ -124,6 +130,7 @@ async def test_customer_identity_is_retained_only_after_ownership_authorization(
         )
     assert denied.value.code == code
     assert identity.customer_hierarchy == (hierarchy if denial == "budget" else None)
+
 
 
 @pytest.mark.asyncio
@@ -226,6 +233,7 @@ def _serve_jwks(monkeypatch: pytest.MonkeyPatch, litellm_jwtauth: LiteLLM_JWTAut
 )
 async def test_virtual_key_model_policy_on_first_lookup_and_cache_hit(
     monkeypatch: pytest.MonkeyPatch,
+    rust_auth_stores: RustAuthStores,
     model: str,
     fallbacks: list[str],
     allowed: bool,
@@ -233,12 +241,11 @@ async def test_virtual_key_model_policy_on_first_lookup_and_cache_hit(
     server: Final = litellm.proxy.proxy_server
     cache: Final = UserApiKeyCache()
     key: Final = "sk-central-model-check"
-    stored: Final = UserAPIKeyAuth(token=server.hash_token(key), models=["model-a"])
-    database: Final = MagicMock(get_data=AsyncMock(side_effect=(stored, AssertionError("unexpected cache miss"))))
+    rust_auth_stores.key.rows[server.hash_token(key)] = {"token": server.hash_token(key), "models": ["model-a"]}
     monkeypatch.setattr(server, "master_key", MASTER_KEY)
     monkeypatch.setattr(server, "general_settings", {})
     monkeypatch.setattr(server, "user_api_key_cache", cache)
-    monkeypatch.setattr(server, "prisma_client", database)
+    monkeypatch.setattr(server, "prisma_client", MagicMock())
     monkeypatch.setattr(server, "llm_router", None)
     monkeypatch.setattr(server, "user_custom_auth", None)
     for _ in range(2):
@@ -260,14 +267,21 @@ async def test_virtual_key_model_policy_on_first_lookup_and_cache_hit(
                 await user_api_key_auth(request=request, api_key=f"Bearer {key}")
             assert denied.value.code == "403"
             assert "model-b" in denied.value.message
+    assert rust_auth_stores.key.lookups == [(server.hash_token(key), False)]
 
 
 @pytest.mark.asyncio
-async def test_scim_deactivation_precedes_central_key_model_denial(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_scim_deactivation_precedes_central_key_model_denial(
+    monkeypatch: pytest.MonkeyPatch, rust_auth_stores: RustAuthStores
+) -> None:
     server: Final = litellm.proxy.proxy_server
     key: Final = "sk-deactivated-owner"
     cache: Final = UserApiKeyCache()
-    stored: Final = UserAPIKeyAuth(token=server.hash_token(key), models=["model-a"], user_id="inactive-owner")
+    rust_auth_stores.key.rows[server.hash_token(key)] = {
+        "token": server.hash_token(key),
+        "models": ["model-a"],
+        "user_id": "inactive-owner",
+    }
     cache.set_cache(
         "inactive-owner",
         LiteLLM_UserTable(user_id="inactive-owner", metadata={"scim_active": False}),
@@ -276,7 +290,7 @@ async def test_scim_deactivation_precedes_central_key_model_denial(monkeypatch: 
     monkeypatch.setattr(server, "master_key", MASTER_KEY)
     monkeypatch.setattr(server, "general_settings", {})
     monkeypatch.setattr(server, "user_api_key_cache", cache)
-    monkeypatch.setattr(server, "prisma_client", MagicMock(get_data=AsyncMock(return_value=stored)))
+    monkeypatch.setattr(server, "prisma_client", MagicMock())
     monkeypatch.setattr(server, "llm_router", None)
     monkeypatch.setattr(server, "user_custom_auth", None)
     request: Final = StarletteRequest(
@@ -1627,7 +1641,7 @@ async def test_auth_custom_key_header_precedence_and_fallback(
 @pytest.mark.asyncio
 @pytest.mark.parametrize("custom_header_value", [b"Bearer sk-wrong", b""])
 async def test_auth_rejects_wrong_or_empty_present_custom_header(
-    custom_header_value: bytes, monkeypatch: pytest.MonkeyPatch
+    custom_header_value: bytes, monkeypatch: pytest.MonkeyPatch, rust_auth_stores: RustAuthStores
 ):
     from fastapi import Request
     from starlette.datastructures import URL
@@ -1637,7 +1651,7 @@ async def test_auth_rejects_wrong_or_empty_present_custom_header(
 
     monkeypatch.setattr(proxy_server, "master_key", "sk-lit9211-master")
     monkeypatch.setattr(proxy_server, "general_settings", {"litellm_key_header_name": "X-Custom-Key"})
-    monkeypatch.setattr(proxy_server, "prisma_client", MagicMock(get_data=AsyncMock(return_value=None)))
+    monkeypatch.setattr(proxy_server, "prisma_client", MagicMock())
 
     request = Request(
         scope={
@@ -2601,14 +2615,14 @@ async def test_a_request_without_a_key_is_told_no_key_was_passed(monkeypatch: py
 
 @pytest.mark.asyncio
 async def test_customer_hierarchy_survives_virtual_key_auth_without_legacy_end_user(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, rust_auth_stores: RustAuthStores
 ) -> None:
     from litellm.proxy.auth import customer_hierarchy_auth as hierarchy_module
     from litellm.types.proxy.auth.customer_hierarchy import CustomerHierarchyAuth, CustomerScopeAuth
 
     server: Final = litellm.proxy.proxy_server
     key: Final = "sk-hierarchy-member"
-    stored: Final = UserAPIKeyAuth(token=server.hash_token(key))
+    rust_auth_stores.key.rows[server.hash_token(key)] = {"token": server.hash_token(key)}
     hierarchy: Final = CustomerHierarchyAuth(
         customer_member_id="m1",
         customer_team_id="t1",
@@ -2620,7 +2634,7 @@ async def test_customer_hierarchy_survives_virtual_key_auth_without_legacy_end_u
     monkeypatch.setattr(server, "master_key", MASTER_KEY)
     monkeypatch.setattr(server, "general_settings", {})
     monkeypatch.setattr(server, "user_api_key_cache", UserApiKeyCache())
-    monkeypatch.setattr(server, "prisma_client", MagicMock(get_data=AsyncMock(return_value=stored)))
+    monkeypatch.setattr(server, "prisma_client", MagicMock())
     monkeypatch.setattr(server, "llm_router", None)
     monkeypatch.setattr(server, "user_custom_auth", None)
     request: Final = StarletteRequest(
@@ -2647,7 +2661,7 @@ async def test_customer_hierarchy_survives_virtual_key_auth_without_legacy_end_u
 @pytest.mark.asyncio
 @pytest.mark.parametrize("key_org,allowed", (("o1", True), ("o2", False), (None, True)))
 async def test_a_key_pinned_to_a_customer_org_only_serves_that_orgs_members(
-    monkeypatch: pytest.MonkeyPatch, key_org: str | None, allowed: bool
+    monkeypatch: pytest.MonkeyPatch, rust_auth_stores: RustAuthStores, key_org: str | None, allowed: bool
 ) -> None:
     from litellm.proxy.auth import customer_hierarchy_auth as hierarchy_module
     from litellm.types.proxy.auth.customer_hierarchy import CustomerHierarchyAuth, CustomerScopeAuth
@@ -2655,7 +2669,7 @@ async def test_a_key_pinned_to_a_customer_org_only_serves_that_orgs_members(
     server: Final = litellm.proxy.proxy_server
     key: Final = "sk-hierarchy-scoped"
     metadata: Final = {"customer_org_id": key_org} if key_org is not None else {}
-    stored: Final = UserAPIKeyAuth(token=server.hash_token(key), metadata=metadata)
+    rust_auth_stores.key.rows[server.hash_token(key)] = {"token": server.hash_token(key), "metadata": metadata}
     hierarchy: Final = CustomerHierarchyAuth(
         customer_member_id="m1",
         customer_team_id="t1",
@@ -2666,7 +2680,7 @@ async def test_a_key_pinned_to_a_customer_org_only_serves_that_orgs_members(
     monkeypatch.setattr(server, "master_key", MASTER_KEY)
     monkeypatch.setattr(server, "general_settings", {})
     monkeypatch.setattr(server, "user_api_key_cache", UserApiKeyCache())
-    monkeypatch.setattr(server, "prisma_client", MagicMock(get_data=AsyncMock(return_value=stored)))
+    monkeypatch.setattr(server, "prisma_client", MagicMock())
     monkeypatch.setattr(server, "llm_router", None)
     monkeypatch.setattr(server, "user_custom_auth", None)
     request: Final = StarletteRequest(
@@ -2695,14 +2709,14 @@ async def test_a_key_pinned_to_a_customer_org_only_serves_that_orgs_members(
 
 @pytest.mark.asyncio
 async def test_customer_model_access_is_checked_against_the_model_the_route_serves(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, rust_auth_stores: RustAuthStores
 ) -> None:
     from litellm.proxy.auth import customer_hierarchy_auth as hierarchy_module
     from litellm.types.proxy.auth.customer_hierarchy import CustomerHierarchyAuth, CustomerScopeAuth
 
     server: Final = litellm.proxy.proxy_server
     key: Final = "sk-hierarchy-route-model"
-    stored: Final = UserAPIKeyAuth(token=server.hash_token(key))
+    rust_auth_stores.key.rows[server.hash_token(key)] = {"token": server.hash_token(key)}
     hierarchy: Final = CustomerHierarchyAuth(
         customer_member_id="m1",
         customer_team_id="t1",
@@ -2713,7 +2727,7 @@ async def test_customer_model_access_is_checked_against_the_model_the_route_serv
     monkeypatch.setattr(server, "master_key", MASTER_KEY)
     monkeypatch.setattr(server, "general_settings", {})
     monkeypatch.setattr(server, "user_api_key_cache", UserApiKeyCache())
-    monkeypatch.setattr(server, "prisma_client", MagicMock(get_data=AsyncMock(return_value=stored)))
+    monkeypatch.setattr(server, "prisma_client", MagicMock())
     monkeypatch.setattr(server, "llm_router", None)
     monkeypatch.setattr(server, "user_custom_auth", None)
     request: Final = StarletteRequest(

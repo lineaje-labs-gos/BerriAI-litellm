@@ -10,16 +10,18 @@ methods; richer repositories live in their own modules.
 from collections.abc import Mapping, Sequence
 from datetime import timedelta
 from itertools import groupby
-from typing import TYPE_CHECKING, Any, Final, Generic, Protocol
+from typing import TYPE_CHECKING, Any, Final, Generic, NamedTuple, Protocol
 
 from pydantic import TypeAdapter
 
 from litellm.litellm_core_utils.core_helpers import require_attributes
 from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
 from litellm.models.access_group import LiteLLM_AccessGroupTable
+from litellm.repositories import rust_database
 from litellm.repositories.accounting_delivery_repository import LedgerDatabase, LedgerTransaction
 from litellm.repositories.chunked_in import find_many_in
 from litellm.repositories.prisma_protocols import RowT_co, TableActions
+from litellm.rust_bridge._native import RustJwtKeyMappingRepository, RustModelAccessGroupRepository
 
 if TYPE_CHECKING:
     from prisma import models as prisma_models  # noqa: F401  # used by quoted base-class subscripts
@@ -287,16 +289,55 @@ class TagRepository(PrismaTableRepository["prisma_models.LiteLLM_TagTable"]):
     table_name = "litellm_tagtable"
 
 
+class ModelAccessGroupBudgetForAuth(NamedTuple):
+    """A model access group's budget as auth reads it; ``has_budget_windows`` marks a row auth must refuse."""
+
+    access_group_name: str
+    spend: float
+    max_budget: float | None
+    has_budget_windows: bool
+
+
 class ModelAccessGroupBudgetRepository(PrismaTableRepository["prisma_models.LiteLLM_ModelAccessGroupBudgetTable"]):
     table_name = "litellm_modelaccessgroupbudgettable"
+
+    async def names(self, limit: int) -> tuple[str, ...]:
+        """Up to ``limit`` names of the groups that have a budget row, read by the Rust repository."""
+        return tuple(await rust_database.required_repository(RustModelAccessGroupRepository).names(limit))
+
+    async def budgets_for_auth(self, names: Sequence[str]) -> tuple[ModelAccessGroupBudgetForAuth, ...]:
+        """The budget rows of ``names`` that exist, read by the Rust repository."""
+        rows: Final = await rust_database.required_repository(RustModelAccessGroupRepository).budgets(list(names))
+        return tuple(ModelAccessGroupBudgetForAuth(*row) for row in rows)
 
 
 class InvitationLinkRepository(PrismaTableRepository["prisma_models.LiteLLM_InvitationLink"]):
     table_name = "litellm_invitationlink"
 
 
+class JWTClaimScope(NamedTuple):
+    """The issuer (empty for the global scope), claim name and claim value a mapping row is stored under."""
+
+    jwt_issuer: str
+    jwt_claim_name: str
+    jwt_claim_value: str
+
+
 class JWTKeyMappingRepository(PrismaTableRepository["prisma_models.LiteLLM_JWTKeyMapping"]):
     table_name = "litellm_jwtkeymapping"
+
+    async def mapped_token(self, jwt_claim_name: str, jwt_claim_value: str, jwt_issuer: str | None) -> str | None:
+        """The hashed key an active mapping gives this claim in exactly ``jwt_issuer``'s scope (global when falsy)."""
+        return await rust_database.required_repository(RustJwtKeyMappingRepository).mapped_token(
+            jwt_claim_name, jwt_claim_value, jwt_issuer or None
+        )
+
+    async def mapped_claims(self, hashed_tokens: Sequence[str]) -> tuple[JWTClaimScope, ...]:
+        """The claim scopes mapped to any of ``hashed_tokens``."""
+        claims: Final = await rust_database.required_repository(RustJwtKeyMappingRepository).mapped_claims(
+            list(hashed_tokens)
+        )
+        return tuple(JWTClaimScope(*claim) for claim in claims)
 
 
 class MemoryRepository(PrismaTableRepository["prisma_models.LiteLLM_MemoryTable"]):

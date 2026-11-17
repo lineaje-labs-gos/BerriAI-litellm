@@ -16,7 +16,6 @@ from typing import (
     Protocol,
     TypeAlias,
     TypeVar,
-    cast,  # noqa: TID251  # get_data returns validated rows selected by table_name,
 )
 
 from typing_extensions import assert_never
@@ -1547,9 +1546,7 @@ class ResetBudgetJob:
                     try:
                         pre_reset_spend, expected_reset_at = (
                             float(key.spend or 0.0),
-                            cast(  # cast-ok: get_data's key branch returns validated key rows
-                                LiteLLM_VerificationToken, key
-                            ).budget_reset_at,
+                            key.budget_reset_at,
                         )
                         updated_key = await ResetBudgetJob._reset_budget_for_key(
                             key=key,
@@ -1660,9 +1657,7 @@ class ResetBudgetJob:
                     try:
                         pre_reset_spend, expected_reset_at = (
                             float(user.spend or 0.0),
-                            cast(  # cast-ok: get_data's user branch returns validated user rows
-                                LiteLLM_UserTable, user
-                            ).budget_reset_at,
+                            user.budget_reset_at,
                         )
                         updated_user = await ResetBudgetJob._reset_budget_for_user(
                             user=user,
@@ -1781,9 +1776,7 @@ class ResetBudgetJob:
                     try:
                         pre_reset_spend, expected_reset_at = (
                             float(team.spend or 0.0),
-                            cast(  # cast-ok: get_data's team branch returns validated team rows
-                                LiteLLM_TeamTable, team
-                            ).budget_reset_at,
+                            team.budget_reset_at,
                         )
                         updated_team = await ResetBudgetJob._reset_budget_for_team(
                             team=team,

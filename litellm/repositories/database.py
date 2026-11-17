@@ -16,6 +16,7 @@ from litellm.proxy.db.native_database import (
     resolve_native_endpoint,
     writer_token_rotation,
 )
+from litellm.repositories import rust_database
 from litellm.rust_bridge._native import NativeDatabase, NativeDatabaseFailure
 
 if TYPE_CHECKING:
@@ -88,6 +89,7 @@ class Database:
             if reader_url is None
             else _token_refresh(native.set_reader_password, reader_token_rotation(reader_url), reader_url)
         )
+        rust_database.install(native)
         return cls(
             prisma=prisma,
             native=native,
@@ -104,6 +106,7 @@ class Database:
             await self.prisma.aclose()
         finally:
             if self.native is not None:
+                rust_database.clear(self.native)
                 await self.native.close()
 
 

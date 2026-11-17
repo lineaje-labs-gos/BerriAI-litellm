@@ -1723,7 +1723,11 @@ def run_server(
             db_connection_timeout = LiteLLMDatabaseConnectionPool.database_connection_pool_timeout.value
 
         if os.getenv("DATABASE_URL", None) is not None or os.getenv("DIRECT_URL", None) is not None:
-            from litellm.proxy.db.connection_budget import ConnectionBudget
+            from litellm.proxy.db.connection_budget import (
+                RUST_CONNECTIONS_ENV_VAR,
+                ConnectionBudget,
+                shared_rust_connections,
+            )
             from litellm.proxy.db.db_url_settings import (
                 DISABLE_PREPARED_STATEMENTS_ENV_VAR,
                 add_missing_query_params,
@@ -1812,6 +1816,11 @@ def run_server(
                 else None
             )
             reader_prisma_limit: Final = None if reader_budget is None else reader_budget.prisma_limit
+            rust_connections: Final = shared_rust_connections((writer_budget, reader_budget))
+            if rust_connections is None:
+                os.environ.pop(RUST_CONNECTIONS_ENV_VAR, None)
+            else:
+                os.environ[RUST_CONNECTIONS_ENV_VAR] = str(rust_connections)
             if read_replica_url:
                 reader_options: Final[str] = _pg_options_with_timeouts(
                     _url_query_value(read_replica_url, "options"),
@@ -1839,14 +1848,14 @@ def run_server(
                 postgres_connection_budget_message(
                     writer_limit=_url_query_value(os.getenv("DATABASE_URL"), "connection_limit")
                     or f"{db_connection_pool_limit}",
-                    rust_writer_limit=rust_writer_connections,
+                    rust_writer_limit=rust_connections or 0,
                     reader_limit=(
                         _url_query_value(os.getenv("DATABASE_URL_READ_REPLICA"), "connection_limit")
                         or f"{db_connection_pool_limit}"
                     )
                     if read_replica_url
                     else None,
-                    rust_reader_limit=0 if reader_budget is None else reader_budget.rust,
+                    rust_reader_limit=rust_connections or 0,
                     num_workers=f"{1 if run_hypercorn else num_workers}",
                 )
             )
