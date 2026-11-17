@@ -10231,6 +10231,23 @@ class TestMCPServerTimestamps:
         assert servers[1].rpm is None
 
     @pytest.mark.asyncio
+    async def test_load_servers_from_config_preserves_tool_name_overrides(self, config_only_mcp_manager_factory):
+        """tool_name_to_display_name and tool_name_to_description survive the config.yaml path."""
+        manager = config_only_mcp_manager_factory()
+        config = {
+            "my_server": {
+                "url": "https://example.com/mcp",
+                "transport": MCPTransport.http,
+                "tool_name_to_display_name": {"get_weather": "weather"},
+                "tool_name_to_description": {"get_weather": "Get the weather for a city"},
+            },
+        }
+        await manager.load_servers_from_config(config)
+        server = next(iter(manager.config_mcp_servers.values()))
+        assert server.tool_name_to_display_name == {"get_weather": "weather"}
+        assert server.tool_name_to_description == {"get_weather": "Get the weather for a city"}
+
+    @pytest.mark.asyncio
     async def test_call_regular_mcp_tool_timeout_returns_504(self):
         """When the MCP client call is cancelled (timeout), _call_regular_mcp_tool raises HTTPException 504."""
         from unittest.mock import AsyncMock, patch
