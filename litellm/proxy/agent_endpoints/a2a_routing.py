@@ -305,7 +305,9 @@ async def _typed_a2a_agent_request(
     if not isinstance(api_base, str) or not api_base:
         verbose_proxy_logger.error("[A2A] Agent '%s' has no URL configured", agent_name)
         route_name: Final = ROUTE_ENDPOINT_MAPPING.get(route_type, route_type)
-        raise ProxyModelNotFoundError(route=route_name, model_name=f"a2a/{agent_name}", retryable_with_model_read_through=False)
+        raise ProxyModelNotFoundError(
+            route=route_name, model_name=f"a2a/{agent_name}", retryable_with_model_read_through=False
+        )
 
     params: Final = _a2a_message_params(data.get("messages"))
     request_id: Final = str(uuid.uuid4())
@@ -360,7 +362,9 @@ async def _stream_typed_a2a_agent(
         litellm_params=litellm_params,
         agent_extra_headers=agent_extra_headers,
     ):
-        chunk = _a2a_event_to_stream_chunk(event, model)  # final-ok: Final is not allowed inside an async loop  # pyright: ignore[reportGeneralTypeIssues]
+        chunk = _a2a_event_to_stream_chunk(
+            event, model
+        )  # final-ok: Final is not allowed inside an async loop  # pyright: ignore[reportGeneralTypeIssues]
         if chunk is not None:
             yield chunk
 
