@@ -1,0 +1,340 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT user_id,\n       user_alias,\n       team_id,\n       sso_user_id,\n       organization_id,\n       object_permission_id,\n       password_reset_required,\n       last_breach_check_at,\n       teams,\n       user_role,\n       max_budget,\n       budget_limits AS \"budget_limits: RawJson\",\n       spend,\n       user_email,\n       models,\n       metadata AS \"metadata: RawJson\",\n       max_parallel_requests,\n       tpm_limit,\n       rpm_limit,\n       budget_duration,\n       budget_reset_at,\n       allowed_cache_controls,\n       policies,\n       model_spend AS \"model_spend: RawJson\",\n       model_max_budget AS \"model_max_budget: RawJson\",\n       created_at,\n       updated_at\nFROM \"LiteLLM_UserTable\"\nWHERE sso_user_id = $1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "user_alias",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "user_alias"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "team_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "team_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "sso_user_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "sso_user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "organization_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "organization_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "object_permission_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "object_permission_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "password_reset_required",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "password_reset_required"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "last_breach_check_at",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "last_breach_check_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "teams",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "teams"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "user_role",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "user_role"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "max_budget",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "max_budget"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "budget_limits: RawJson",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "budget_limits"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "spend",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "spend"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "user_email",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "user_email"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "models",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "models"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "metadata: RawJson",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "metadata"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "max_parallel_requests",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "max_parallel_requests"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "tpm_limit",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "tpm_limit"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "rpm_limit",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "rpm_limit"
+          }
+        }
+      },
+      {
+        "ordinal": 19,
+        "name": "budget_duration",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "budget_duration"
+          }
+        }
+      },
+      {
+        "ordinal": 20,
+        "name": "budget_reset_at",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "budget_reset_at"
+          }
+        }
+      },
+      {
+        "ordinal": 21,
+        "name": "allowed_cache_controls",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "allowed_cache_controls"
+          }
+        }
+      },
+      {
+        "ordinal": 22,
+        "name": "policies",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "policies"
+          }
+        }
+      },
+      {
+        "ordinal": 23,
+        "name": "model_spend: RawJson",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "model_spend"
+          }
+        }
+      },
+      {
+        "ordinal": 24,
+        "name": "model_max_budget: RawJson",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "model_max_budget"
+          }
+        }
+      },
+      {
+        "ordinal": 25,
+        "name": "created_at",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 26,
+        "name": "updated_at",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_UserTable\"",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "737197e6e42b3856550fbfc45c87fdc923454c7d3d943917b4fa7a21b65534c3"
+}

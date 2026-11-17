@@ -14,6 +14,7 @@ litellm-python-compat.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, features = ["raw_value"] }
 sqlx.workspace = true
+tokio = { workspace = true, features = ["rt"] }
 tracing.workspace = true
 
 [dev-dependencies]

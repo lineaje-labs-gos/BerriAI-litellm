@@ -1,0 +1,556 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT e.user_id,\n       e.alias,\n       e.spend,\n       e.allowed_model_region,\n       e.default_model,\n       e.models,\n       e.budget_id,\n       e.object_permission_id,\n       e.blocked,\n       b.budget_id AS \"budget_budget_id?\",\n       b.name AS \"budget_name?\",\n       b.max_budget AS \"budget_max_budget?\",\n       b.soft_budget AS \"budget_soft_budget?\",\n       b.max_parallel_requests AS \"budget_max_parallel_requests?\",\n       b.tpm_limit AS \"budget_tpm_limit?\",\n       b.rpm_limit AS \"budget_rpm_limit?\",\n       b.tpd_limit AS \"budget_tpd_limit?\",\n       b.model_max_budget AS \"budget_model_max_budget?: RawJson\",\n       b.model_tpm_limit AS \"budget_model_tpm_limit?: RawJson\",\n       b.model_rpm_limit AS \"budget_model_rpm_limit?: RawJson\",\n       b.budget_duration AS \"budget_budget_duration?\",\n       b.budget_limits AS \"budget_budget_limits?: RawJson\",\n       b.cap_policy AS \"budget_cap_policy?\",\n       b.budget_reset_at AS \"budget_budget_reset_at?\",\n       b.budget_reset_count AS \"budget_budget_reset_count?\",\n       b.allowed_models AS \"budget_allowed_models?\",\n       b.temp_budget_increase AS \"budget_temp_budget_increase?\",\n       b.temp_budget_expiry AS \"budget_temp_budget_expiry?\",\n       b.created_at AS \"budget_created_at?\",\n       b.created_by AS \"budget_created_by?\",\n       b.updated_at AS \"budget_updated_at?\",\n       b.updated_by AS \"budget_updated_by?\",\n       p.object_permission_id AS \"permission_object_permission_id?\",\n       p.mcp_servers AS \"permission_mcp_servers?\",\n       p.mcp_access_groups AS \"permission_mcp_access_groups?\",\n       p.mcp_tool_permissions AS \"permission_mcp_tool_permissions?: RawJson\",\n       p.vector_stores AS \"permission_vector_stores?\",\n       p.agents AS \"permission_agents?\",\n       p.agent_access_groups AS \"permission_agent_access_groups?\",\n       p.models AS \"permission_models?\",\n       p.blocked_tools AS \"permission_blocked_tools?\",\n       p.mcp_toolsets AS \"permission_mcp_toolsets?\",\n       p.search_tools AS \"permission_search_tools?\",\n       p.mcp_tool_search_enabled AS \"permission_mcp_tool_search_enabled?\",\n       p.skills AS \"permission_skills?\"\nFROM \"LiteLLM_EndUserTable\" AS e\nLEFT JOIN \"LiteLLM_BudgetTable\" AS b ON b.budget_id = e.budget_id\nLEFT JOIN \"LiteLLM_ObjectPermissionTable\" AS p ON p.object_permission_id = e.object_permission_id\nWHERE e.user_id = $1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_EndUserTable\"",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "alias",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_EndUserTable\"",
+            "name": "alias"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "spend",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_EndUserTable\"",
+            "name": "spend"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "allowed_model_region",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_EndUserTable\"",
+            "name": "allowed_model_region"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "default_model",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_EndUserTable\"",
+            "name": "default_model"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "models",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_EndUserTable\"",
+            "name": "models"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "budget_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_EndUserTable\"",
+            "name": "budget_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "object_permission_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_EndUserTable\"",
+            "name": "object_permission_id"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "blocked",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_EndUserTable\"",
+            "name": "blocked"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "budget_budget_id?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "budget_id"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "budget_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "budget_max_budget?",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "max_budget"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "budget_soft_budget?",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "soft_budget"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "budget_max_parallel_requests?",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "max_parallel_requests"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "budget_tpm_limit?",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "tpm_limit"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "budget_rpm_limit?",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "rpm_limit"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "budget_tpd_limit?",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "tpd_limit"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "budget_model_max_budget?: RawJson",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "model_max_budget"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "budget_model_tpm_limit?: RawJson",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "model_tpm_limit"
+          }
+        }
+      },
+      {
+        "ordinal": 19,
+        "name": "budget_model_rpm_limit?: RawJson",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "model_rpm_limit"
+          }
+        }
+      },
+      {
+        "ordinal": 20,
+        "name": "budget_budget_duration?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "budget_duration"
+          }
+        }
+      },
+      {
+        "ordinal": 21,
+        "name": "budget_budget_limits?: RawJson",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "budget_limits"
+          }
+        }
+      },
+      {
+        "ordinal": 22,
+        "name": "budget_cap_policy?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "cap_policy"
+          }
+        }
+      },
+      {
+        "ordinal": 23,
+        "name": "budget_budget_reset_at?",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "budget_reset_at"
+          }
+        }
+      },
+      {
+        "ordinal": 24,
+        "name": "budget_budget_reset_count?",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "budget_reset_count"
+          }
+        }
+      },
+      {
+        "ordinal": 25,
+        "name": "budget_allowed_models?",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "allowed_models"
+          }
+        }
+      },
+      {
+        "ordinal": 26,
+        "name": "budget_temp_budget_increase?",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "temp_budget_increase"
+          }
+        }
+      },
+      {
+        "ordinal": 27,
+        "name": "budget_temp_budget_expiry?",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "temp_budget_expiry"
+          }
+        }
+      },
+      {
+        "ordinal": 28,
+        "name": "budget_created_at?",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 29,
+        "name": "budget_created_by?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "created_by"
+          }
+        }
+      },
+      {
+        "ordinal": 30,
+        "name": "budget_updated_at?",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "updated_at"
+          }
+        }
+      },
+      {
+        "ordinal": 31,
+        "name": "budget_updated_by?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "updated_by"
+          }
+        }
+      },
+      {
+        "ordinal": 32,
+        "name": "permission_object_permission_id?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "object_permission_id"
+          }
+        }
+      },
+      {
+        "ordinal": 33,
+        "name": "permission_mcp_servers?",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "mcp_servers"
+          }
+        }
+      },
+      {
+        "ordinal": 34,
+        "name": "permission_mcp_access_groups?",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "mcp_access_groups"
+          }
+        }
+      },
+      {
+        "ordinal": 35,
+        "name": "permission_mcp_tool_permissions?: RawJson",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "mcp_tool_permissions"
+          }
+        }
+      },
+      {
+        "ordinal": 36,
+        "name": "permission_vector_stores?",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "vector_stores"
+          }
+        }
+      },
+      {
+        "ordinal": 37,
+        "name": "permission_agents?",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "agents"
+          }
+        }
+      },
+      {
+        "ordinal": 38,
+        "name": "permission_agent_access_groups?",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "agent_access_groups"
+          }
+        }
+      },
+      {
+        "ordinal": 39,
+        "name": "permission_models?",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "models"
+          }
+        }
+      },
+      {
+        "ordinal": 40,
+        "name": "permission_blocked_tools?",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "blocked_tools"
+          }
+        }
+      },
+      {
+        "ordinal": 41,
+        "name": "permission_mcp_toolsets?",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "mcp_toolsets"
+          }
+        }
+      },
+      {
+        "ordinal": 42,
+        "name": "permission_search_tools?",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "search_tools"
+          }
+        }
+      },
+      {
+        "ordinal": 43,
+        "name": "permission_mcp_tool_search_enabled?",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "mcp_tool_search_enabled"
+          }
+        }
+      },
+      {
+        "ordinal": 44,
+        "name": "permission_skills?",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "skills"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "20c262f24c754f159f15143ae2fd2d454dd8fa96afec03a24b539e6f6b3af214"
+}

@@ -4,7 +4,7 @@ from typing import ClassVar, Final, Generic, Literal, Never, NotRequired, Protoc
 
 import httpx
 from pydantic import JsonValue
-from typing_extensions import disjoint_base
+from typing_extensions import ReadOnly, disjoint_base
 
 from litellm.integrations.custom_logger_v2.rust import RustHandle
 from litellm.models.object_permission import LiteLLM_ObjectPermissionTable
@@ -1838,6 +1838,32 @@ class RustModelAccessGroupRepository:
     def budgets(self, names: Sequence[str]) -> Future[list[tuple[str, float, float | None, bool]]]: ...
 
 @final
+class RustBudgetRepository:
+    def __new__(cls, database: NativeDatabase) -> RustBudgetRepository: ...
+    def find_budget(self, budget_id: str) -> Future[str | None]: ...
+    def find_team_member_default_budget(self, budget_id: str) -> Future[str | None]: ...
+
+@final
+class RustEndUserRepository:
+    def __new__(cls, database: NativeDatabase) -> RustEndUserRepository: ...
+    def find_end_user(self, end_user_id: str) -> Future[str | None]: ...
+    def restricted_end_user_ids(self, limit: int) -> Future[list[str]]: ...
+
+class _RustSignIn(TypedDict):
+    user_id: ReadOnly[str]
+    sso_user_id: ReadOnly[str | None]
+    user_email: ReadOnly[str | None]
+    email_verified: ReadOnly[bool | None]
+    links_any_user: ReadOnly[bool]
+
+@final
+class RustUserRepository:
+    def __new__(cls, database: NativeDatabase) -> RustUserRepository: ...
+    def resolve_user(self, sign_in: _RustSignIn, *, use_writer: bool = False) -> Future[str | None]: ...
+    def email_belongs_to_another_user(self, user_email: str, user_id: str) -> Future[bool]: ...
+    def backfill_user_email(self, user_id: str, user_email: str, *, links_any_user: bool) -> Future[str | None]: ...
+
+@final
 class NativeTokenRedactor:
     def __new__(cls, minimum_custom_key_length: int, word_ranges: Sequence[tuple[int, int]]) -> NativeTokenRedactor: ...
     def redact(self, text: str, replacement: str) -> str | None: ...
@@ -2077,8 +2103,10 @@ __all__ = [
     "RustAuthSettings",
     "RustAuthStep",
     "RustBridgeDeclined",
+    "RustBudgetRepository",
     "RustClaimIdentity",
     "RustDenial",
+    "RustEndUserRepository",
     "RustIdentity",
     "RustJwtKeyMappingRepository",
     "RustJwtMapping",
@@ -2089,6 +2117,7 @@ __all__ = [
     "RustPlan",
     "RustTeamGrant",
     "RustUpstreamError",
+    "RustUserRepository",
     "SpendRead",
     "TokenCounter",
     "Tokenizer",

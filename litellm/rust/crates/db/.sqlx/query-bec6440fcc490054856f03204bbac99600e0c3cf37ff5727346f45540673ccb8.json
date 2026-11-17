@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT user_id\nFROM \"LiteLLM_EndUserTable\"\nWHERE blocked\n   OR budget_id IS NOT NULL\n   OR allowed_model_region IS NOT NULL\n   OR default_model IS NOT NULL\n   OR object_permission_id IS NOT NULL\n   OR cardinality(models) > 0\nLIMIT $1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_EndUserTable\"",
+            "name": "user_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "bec6440fcc490054856f03204bbac99600e0c3cf37ff5727346f45540673ccb8"
+}

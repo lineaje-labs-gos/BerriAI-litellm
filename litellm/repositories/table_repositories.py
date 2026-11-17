@@ -265,10 +265,6 @@ class TeamMembershipRepository(PrismaTableRepository["prisma_models.LiteLLM_Team
     table_name = "litellm_teammembership"
 
 
-class EndUserRepository(PrismaTableRepository["prisma_models.LiteLLM_EndUserTable"]):
-    table_name = "litellm_endusertable"
-
-
 class ManagedVectorStoresRepository(PrismaTableRepository["prisma_models.LiteLLM_ManagedVectorStoresTable"]):
     table_name = "litellm_managedvectorstorestable"
 

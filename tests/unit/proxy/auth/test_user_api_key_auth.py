@@ -2301,7 +2301,11 @@ async def test_jwt_path_skips_user_model_budget_only_for_zero_spend_mcp_methods(
     "verified, links", [({"email_verified": False}, False), ({"email_verified": "false"}, False), ({}, True)]
 )
 async def test_jwt_links_the_sign_in_email_only_when_the_token_does_not_mark_it_unverified(
-    monkeypatch: pytest.MonkeyPatch, scope: dict[str, object], verified: dict[str, object], links: bool
+    monkeypatch: pytest.MonkeyPatch,
+    rust_auth_stores: RustAuthStores,
+    scope: dict[str, object],
+    verified: dict[str, object],
+    links: bool,
 ) -> None:
     auth_checks.last_db_access_time.clear()
     table: Final = UserTable(user_row("owner", "owner@example.com"))

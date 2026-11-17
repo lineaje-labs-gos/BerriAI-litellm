@@ -8704,7 +8704,9 @@ async def test_reload_active_user_by_id_permanent_engine_fault_is_faulted(proxy_
 
 
 @pytest.mark.asyncio
-async def test_load_active_user_by_id_reads_the_row_from_the_database_not_the_cache(proxy_globals):
+async def test_load_active_user_by_id_reads_the_row_from_the_database_not_the_cache(
+    proxy_globals, rust_auth_stores: RustAuthStores
+):
     """JWT auth caches the user it creates before it adds that user to the JWT's team, and adding a
     member never evicts the cached row, so a credential minted off the cached row refused the very first
     token exchange as not a member. The database source has to read the row from the database and leave
@@ -8718,9 +8720,9 @@ async def test_load_active_user_by_id_reads_the_row_from_the_database_not_the_ca
         key="fresh-jwt-user", value=LiteLLM_UserTable(user_id="fresh-jwt-user", teams=[]), model_type=LiteLLM_UserTable
     )
     prisma = MagicMock()
-    prisma.writer_db.litellm_usertable.find_unique = AsyncMock(
-        return_value=LiteLLM_UserTable(user_id="fresh-jwt-user", teams=["team-a"])
-    )
+    rust_auth_stores.user.writer = {
+        "fresh-jwt-user": LiteLLM_UserTable(user_id="fresh-jwt-user", teams=["team-a"]).model_dump()
+    }
     proxy_globals.user_api_key_cache = cache
     proxy_globals.prisma_client = prisma
 
@@ -8734,7 +8736,9 @@ async def test_load_active_user_by_id_reads_the_row_from_the_database_not_the_ca
 
 
 @pytest.mark.asyncio
-async def test_load_active_user_by_id_serves_a_cached_row_without_a_database_read(proxy_globals):
+async def test_load_active_user_by_id_serves_a_cached_row_without_a_database_read(
+    proxy_globals, rust_auth_stores: RustAuthStores
+):
     """Introspection and refresh revalidation run per call, so the loader's default source is the cache: a
     cached row answers without a database read, and only a caller that asks for the database row pays for
     one."""
@@ -8752,9 +8756,9 @@ async def test_load_active_user_by_id_serves_a_cached_row_without_a_database_rea
         model_type=LiteLLM_UserTable,
     )
     prisma = MagicMock()
-    prisma.db.litellm_usertable.find_unique = AsyncMock(
-        return_value=LiteLLM_UserTable(user_id="cached-jwt-user", teams=[])
-    )
+    rust_auth_stores.user.rows = {
+        "cached-jwt-user": LiteLLM_UserTable(user_id="cached-jwt-user", teams=[]).model_dump()
+    }
     proxy_globals.user_api_key_cache = cache
     proxy_globals.prisma_client = prisma
 
@@ -8763,7 +8767,7 @@ async def test_load_active_user_by_id_serves_a_cached_row_without_a_database_rea
     assert not isinstance(loaded, str)
     assert loaded.teams == ["team-a"]
     assert await reload_active_user_by_id("cached-jwt-user") is None
-    prisma.db.litellm_usertable.find_unique.assert_not_awaited()
+    assert rust_auth_stores.user.sign_ins == []
 
 
 @pytest.mark.asyncio
@@ -13076,6 +13080,7 @@ async def test_oauth_exchange_stores_token_for_validated_jwt_user(
     admin: bool,
     owner_state: str,
     monkeypatch: pytest.MonkeyPatch,
+    rust_auth_stores: RustAuthStores,
 ) -> None:
     import httpx
 
@@ -13119,13 +13124,11 @@ async def test_oauth_exchange_stores_token_for_validated_jwt_user(
 
     database: Final = MagicMock()
     users: Final = database.db.litellm_usertable
-    users.find_unique = AsyncMock(return_value=None)
-    users.find_first = AsyncMock(return_value=None)
     users.create = AsyncMock()
     if owner_state in ("missing", "database_error"):
         handler.user_api_key_cache.delete_cache("jwt-owner")
     if owner_state == "database_error":
-        users.find_unique.side_effect = RuntimeError("database unavailable")
+        rust_auth_stores.user.error = RuntimeError("database unavailable")
     if owner_state == "inactive":
         handler.user_api_key_cache.set_cache(
             "jwt-owner", LiteLLM_UserTable(user_id="jwt-owner", metadata={"scim_active": False})
@@ -13368,6 +13371,7 @@ async def test_oauth_jwt_identity_preserves_separate_mcp_route_authorization(
 @pytest.mark.parametrize("inactive", [False, True])
 @pytest.mark.parametrize("admin", [False, True])
 async def test_oauth_jwt_resolves_canonical_owner_without_cached_identity(
+    rust_auth_stores: RustAuthStores,
     jwt_oauth_identity: tuple[_JwtOAuthConfig, "RSAPrivateKey"],
     monkeypatch: pytest.MonkeyPatch,
     identity: str,
@@ -13391,19 +13395,16 @@ async def test_oauth_jwt_resolves_canonical_owner_without_cached_identity(
         organization_memberships=[],
     )
     database: Final = MagicMock()
-    table: Final = database.db.litellm_usertable
-    table.find_unique = AsyncMock(side_effect=[None, owner if identity == "sso" else None])
-    table.find_first = AsyncMock(return_value=owner)
-    table.update = AsyncMock(return_value=owner)
-    database.writer_db.litellm_usertable.update_many = AsyncMock(return_value=1)
+    users: Final = rust_auth_stores.user
+    users.rows = {
+        owner.user_id: {**owner.model_dump(), "sso_user_id": external_id if identity == "sso" else None}
+    }
     monkeypatch.setattr(proxy_server, "prisma_client", database)
     bearer: Final = _oauth_identity_jwt(signing_key, owner=external_id, scope="litellm_proxy_admin" if admin else "")
     request: Final = _token_request({"Authorization": f"Bearer {bearer}"})
     stored_owner: Final = await extract_user_id_from_request(request)
     assert stored_owner == (None if inactive else external_id if admin else "canonical-oauth-owner")
-    assert table.find_unique.await_count == 2
-    if identity == "email":
-        table.find_first.assert_awaited_once()
+    assert users.sign_ins[0][0]["user_id"] == external_id
     if not inactive:
         admission: Final = await proxy_jwt.authorize(
             core.proxy_settings(), bearer, "/mcp/example", "POST", provisioning=True
@@ -13439,6 +13440,7 @@ async def test_oauth_jwt_identity_does_not_provision_or_synchronize_teams(
 @pytest.mark.asyncio
 @pytest.mark.parametrize("state", ["active", "inactive", "missing_database"])
 async def test_oauth_refresh_revalidates_the_same_active_user_rule(
+    rust_auth_stores: RustAuthStores,
     jwt_oauth_identity: tuple[_JwtOAuthConfig, "RSAPrivateKey"],
     monkeypatch: pytest.MonkeyPatch,
     state: str,
@@ -13450,7 +13452,7 @@ async def test_oauth_refresh_revalidates_the_same_active_user_rule(
     handler, _ = jwt_oauth_identity
     user_id: Final = f"jwt-owner-{state}"
     row: Final = LiteLLM_UserTable(user_id=user_id, metadata={"scim_active": state != "inactive"})
-    proxy_server.prisma_client.db.litellm_usertable.find_unique = AsyncMock(return_value=row)
+    rust_auth_stores.user.rows = {user_id: row.model_dump()}
     if state == "missing_database":
         monkeypatch.setattr(proxy_server, "prisma_client", None)
     expected: Final = None if state == "active" else "no_active_key" if state == "inactive" else "unresolvable"
