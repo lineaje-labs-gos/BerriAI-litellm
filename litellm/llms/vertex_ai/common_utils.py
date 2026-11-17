@@ -1200,14 +1200,14 @@ def filter_schema_fields(schema_dict: dict[str, object], valid_fields: set[str],
     return result
 
 
-def _normalize_tuple_items(schema: dict[str, JsonValue], depth: int = 0) -> None:
+def _normalize_tuple_items(schema: dict[str, JsonValue], depth: int = 0) -> None:  # mutable-ok: callers pass a live schema tree that this helper rewrites in place
     if depth > DEFAULT_MAX_RECURSE_DEPTH:
         raise ValueError(f"Max depth of {DEFAULT_MAX_RECURSE_DEPTH} exceeded while processing schema.")
 
     tuple_items: Final = schema.get("items", None)
     if isinstance(tuple_items, list):
         if tuple_items:
-            schema["items"] = {"anyOf": tuple_items}  # mutable-ok: the walkers below rewrite this subtree in place
+            schema["items"] = {"anyOf": tuple_items}  # rebind-ok: the walkers below rewrite this subtree in place
         else:
             schema.pop("items")
 
