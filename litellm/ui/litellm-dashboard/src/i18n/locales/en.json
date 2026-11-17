@@ -14376,7 +14376,8 @@
       "oauth2IdJag": "ID-JAG (Okta Cross App Access)",
       "awsSigv4": "AWS SigV4 (Bedrock AgentCore MCPs)",
       "truePassthrough": "True Passthrough (no LiteLLM auth)",
-      "oauthDelegate": "OAuth Delegate (client-supplied upstream token)"
+      "oauthDelegate": "OAuth Delegate (client-supplied upstream token)",
+      "signedIdentity": "Signed identity (LiteLLM-signed JWT of the caller)"
     },
     "transports": {
       "http": "Streamable HTTP (Recommended)",
