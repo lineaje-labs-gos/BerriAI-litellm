@@ -207,6 +207,23 @@ A2A_REPLY = {
     "id": "1",
     "result": {"kind": "message", "role": "agent", "messageId": "m-1", "parts": [{"kind": "text", "text": "pong"}]},
 }
+A2A_TASK_REPLY = {
+    "jsonrpc": "2.0",
+    "id": "1",
+    "result": {
+        "id": "task-1",
+        "kind": "task",
+        "status": {"state": "completed"},
+        "history": [
+            {
+                "kind": "message",
+                "role": "agent",
+                "messageId": "m-1",
+                "parts": [{"kind": "text", "text": "pong"}],
+            }
+        ],
+    },
+}
 
 
 @pytest.fixture
@@ -480,14 +497,42 @@ async def test_route_a2a_agent_with_another_provider_keeps_calling_its_card_url_
         agent_card_params={"url": agent_url},
         litellm_params={"custom_llm_provider": "pydantic_ai_agents", "model": "pydantic-agent"},
     )
-    agent_endpoint = respx.post(agent_url).mock(return_value=httpx.Response(200, json=A2A_REPLY))
+    agent_endpoint = respx.post(agent_url).mock(return_value=httpx.Response(200, json=A2A_TASK_REPLY))
     data = {"model": "a2a/pydantic-agent", "messages": [{"role": "user", "content": "ping"}]}
 
     with patch("litellm.proxy.agent_endpoints.agent_registry.global_agent_registry", _registry_with(agent)):
         response = await (await route_a2a_agent_request(data=data, route_type="acompletion"))
 
-    assert json.loads(agent_endpoint.calls.last.request.content)["method"] == "message/send"
+    sent_body = json.loads(agent_endpoint.calls.last.request.content)
+    assert sent_body["method"] == "message/send"
+    assert sent_body["params"]["message"]["kind"] == "message"
     assert response.choices[0].message.content == "pong"
+
+
+@respx.mock
+async def test_route_a2a_agent_with_another_provider_streams_its_answer_as_openai_chunks(
+    httpx_transport: None,
+) -> None:
+    agent_url = "https://pydantic-agent.example.com"
+    agent = AgentResponse(
+        agent_id="pydantic-agent-id",
+        agent_name="pydantic-agent",
+        agent_card_params={"url": agent_url},
+        litellm_params={"custom_llm_provider": "pydantic_ai_agents", "model": "pydantic-agent"},
+    )
+    respx.post(agent_url).mock(return_value=httpx.Response(200, json=A2A_TASK_REPLY))
+    data = {
+        "model": "a2a/pydantic-agent",
+        "stream": True,
+        "messages": [{"role": "user", "content": "ping"}],
+    }
+
+    with patch("litellm.proxy.agent_endpoints.agent_registry.global_agent_registry", _registry_with(agent)):
+        stream = await (await route_a2a_agent_request(data=data, route_type="acompletion"))
+
+    chunks = [chunk async for chunk in stream]
+    assert "".join(chunk.choices[0].delta.content or "" for chunk in chunks) == "pong"
+    assert chunks[-1].choices[0].finish_reason == "stop"
 
 
 @respx.mock
