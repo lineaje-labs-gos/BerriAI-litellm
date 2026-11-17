@@ -4024,8 +4024,10 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "envy",
+ "flate2",
  "futures-util",
  "http-body-util",
+ "hyper-util",
  "litellm-circuit-breaker",
  "litellm-config",
  "litellm-config-load",
@@ -4054,6 +4056,7 @@ dependencies = [
  "rustls 0.23.42",
  "serde",
  "serde_json",
+ "strum",
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
@@ -4122,6 +4125,8 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "tokio-util",
+ "tower",
+ "tower-http",
  "tower-service",
  "tracing",
 ]
