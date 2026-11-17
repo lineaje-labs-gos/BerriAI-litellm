@@ -1,6 +1,7 @@
 use std::{
     convert::Infallible,
     error::Error,
+    sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -11,7 +12,7 @@ use litellm_gateway_inference::Gateway;
 use litellm_license::Entitlements;
 use litellm_tracing::{Level, Logger, Metadata, Record, Sink};
 use serde_json::json;
-use tower::Service;
+use tower::{Layer, Service};
 
 mod process;
 
@@ -69,11 +70,7 @@ async fn standalone(
     let config = litellm_gateway::load_config(settings.litellm_config).await?;
     let state = AppState::build(&config).await?;
     let entitlements = build_license(&state.inference, &config, environment).await?;
-    tracing::info!(
-        enterprise = entitlements.is_enterprise(),
-        "license verified"
-    );
-    let app = native(state.clone(), &config);
+    let app = native(state.clone(), &config, environment, entitlements);
     let listener = tokio::net::TcpListener::bind((settings.host.as_str(), settings.port)).await?;
 
     tracing::info!(address = %listener.local_addr()?, models = config.model_list.len(), log_level = %log_level, "gateway listening");
@@ -96,13 +93,9 @@ async fn in_front_of_python(
     let config = Config::default();
     let state = AppState::build(&config).await?;
     let entitlements = build_license(&state.inference, &config, environment).await?;
-    tracing::info!(
-        enterprise = entitlements.is_enterprise(),
-        "license verified"
-    );
     let ran = litellm_gateway_forward::run(
         forward,
-        native(state.clone(), &config),
+        native(state.clone(), &config, environment, entitlements),
         litellm_gateway::admit,
         async move {
             tokio::select! { () = shutdown_signal() => (), () = stdin_closed => () }
@@ -127,18 +120,42 @@ async fn build_license(
     .await
 }
 
-/// The native app, which both modes build here so they cannot differ in it. In front of Python,
-/// `admit` goes around all of it.
+/// The native app, which both modes build here so they cannot differ in its layers. In front of
+/// Python, `admit` goes around all of it.
 fn native(
     state: AppState,
     config: &Config,
+    environment: &Environment,
+    entitlements: Entitlements,
 ) -> impl Service<Request, Response = Response, Error = Infallible, Future: Send + 'static>
 + Clone
 + Send
 + Sync
 + 'static
 + use<> {
-    litellm_gateway::router(state, config)
+    use litellm_gateway::middleware::{InFlight, global, root_path};
+    root_path::layer(root_path::Settings::from_environment(environment)).layer(global(
+        litellm_gateway::router(state, config),
+        &middleware_settings(config, environment),
+        Arc::new(entitlements),
+        &InFlight::new(),
+    ))
+}
+
+fn middleware_settings(
+    config: &Config,
+    environment: &Environment,
+) -> litellm_gateway::middleware::Settings {
+    use litellm_gateway::middleware::{
+        admission_control, body_limit, cors, decompression, security_headers,
+    };
+    litellm_gateway::middleware::Settings {
+        admission_control: admission_control::Settings::from_general(&config.general_settings),
+        security_headers: security_headers::Settings::from_environment(environment),
+        cors: cors::Settings::from_environment(environment),
+        body_limit: body_limit::Settings::from_general(&config.general_settings),
+        decompression: decompression::Settings::from_environment(environment),
+    }
 }
 
 async fn shutdown_signal() {
