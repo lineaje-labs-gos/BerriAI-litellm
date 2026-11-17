@@ -17,11 +17,17 @@ from pydantic import TypeAdapter
 from litellm.litellm_core_utils.core_helpers import require_attributes
 from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
 from litellm.models.access_group import LiteLLM_AccessGroupTable
+from litellm.models.tag import LiteLLM_TagTable
 from litellm.repositories import rust_database
 from litellm.repositories.accounting_delivery_repository import LedgerDatabase, LedgerTransaction
 from litellm.repositories.chunked_in import find_many_in
 from litellm.repositories.prisma_protocols import RowT_co, TableActions
-from litellm.rust_bridge._native import RustJwtKeyMappingRepository, RustModelAccessGroupRepository
+from litellm.rust_bridge._native import (
+    RustAccessGroupRepository,
+    RustJwtKeyMappingRepository,
+    RustModelAccessGroupRepository,
+    RustTagRepository,
+)
 
 if TYPE_CHECKING:
     from prisma import models as prisma_models  # noqa: F401  # used by quoted base-class subscripts
@@ -288,6 +294,15 @@ class PromptRepository(PrismaTableRepository["prisma_models.LiteLLM_PromptTable"
 class TagRepository(PrismaTableRepository["prisma_models.LiteLLM_TagTable"]):
     table_name = "litellm_tagtable"
 
+    async def names(self, limit: int) -> tuple[str, ...]:
+        """Up to ``limit`` tag names, read by the Rust repository."""
+        return tuple(await rust_database.required_repository(RustTagRepository).names(limit))
+
+    async def find_many_for_auth(self, tag_names: Sequence[str]) -> tuple[LiteLLM_TagTable, ...]:
+        """The tags among ``tag_names`` that have a row, with their budgets, read by the Rust repository."""
+        rows: Final = await rust_database.required_repository(RustTagRepository).find_many(list(tag_names))
+        return tuple(LiteLLM_TagTable.model_validate_json(row) for row in rows)
+
 
 class ModelAccessGroupBudgetForAuth(NamedTuple):
     """A model access group's budget as auth reads it; ``has_budget_windows`` marks a row auth must refuse."""
@@ -374,6 +389,15 @@ class ModelTableRepository(PrismaTableRepository["prisma_models.LiteLLM_ModelTab
 
 class AccessGroupRepository(PrismaTableRepository["prisma_models.LiteLLM_AccessGroupTable"]):
     table_name = "litellm_accessgrouptable"
+
+    async def find_for_auth(self, access_group_id: str, *, use_writer: bool = False) -> LiteLLM_AccessGroupTable | None:
+        """The access group, read by the Rust repository from the writer when ``use_writer`` is set."""
+        return rust_database.decode(
+            LiteLLM_AccessGroupTable,
+            await rust_database.required_repository(RustAccessGroupRepository).find(
+                access_group_id, use_writer=use_writer
+            ),
+        )
 
     async def find_by_name(self, name: str) -> LiteLLM_AccessGroupTable | None:
         row: Final = await self.table.find_unique(where={"access_group_name": name})

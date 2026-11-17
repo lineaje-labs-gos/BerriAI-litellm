@@ -1,0 +1,172 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT object_permission_id,\n       mcp_servers,\n       mcp_access_groups,\n       mcp_tool_permissions AS \"mcp_tool_permissions: RawJson\",\n       vector_stores,\n       agents,\n       agent_access_groups,\n       models,\n       blocked_tools,\n       mcp_toolsets,\n       search_tools,\n       mcp_tool_search_enabled,\n       skills\nFROM \"LiteLLM_ObjectPermissionTable\"\nWHERE object_permission_id = $1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "object_permission_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "object_permission_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "mcp_servers",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "mcp_servers"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "mcp_access_groups",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "mcp_access_groups"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "mcp_tool_permissions: RawJson",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "mcp_tool_permissions"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "vector_stores",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "vector_stores"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "agents",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "agents"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "agent_access_groups",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "agent_access_groups"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "models",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "models"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "blocked_tools",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "blocked_tools"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "mcp_toolsets",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "mcp_toolsets"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "search_tools",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "search_tools"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "mcp_tool_search_enabled",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "mcp_tool_search_enabled"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "skills",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_ObjectPermissionTable\"",
+            "name": "skills"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "85eafd5bdce005bee55658c9678b5a1f5c920286f06b7a49ca6ccb879dba7f89"
+}

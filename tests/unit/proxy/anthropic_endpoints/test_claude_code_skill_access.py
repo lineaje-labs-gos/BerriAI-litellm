@@ -23,6 +23,7 @@ from litellm.proxy.anthropic_endpoints.claude_code_endpoints.claude_code_skill_a
     resolve_skill_visibility,
     skill_visibility,
 )
+from tests.unit.proxy.rust_auth_stores import RustAuthStores, install_rust_auth_stores
 
 
 def _perm(skills: list[str] | None) -> LiteLLM_ObjectPermissionTable:
@@ -365,13 +366,13 @@ async def test_access_group_skills_marks_scope_unresolved_through_the_real_group
             access_group_id=group.access_group_id, access_group_table=group, user_api_key_cache=cache
         )
     prisma = MagicMock()
-    prisma.db.litellm_accessgrouptable.find_unique = AsyncMock(return_value=None)
+    stores = install_rust_auth_stores(monkeypatch)
     monkeypatch.setattr(auth_checks, "get_team_object", AsyncMock(return_value=_team("team-1", team_groups)))
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
     monkeypatch.setattr(proxy_server, "user_api_key_cache", cache)
 
     assert await access_group_skills(caller) == AccessGroupSkills(unresolved=True)
-    prisma.db.litellm_accessgrouptable.find_unique.assert_awaited_once()
+    assert [use_writer for _, use_writer in stores.access_group.lookups] == [False]
 
 
 def test_skill_visibility_is_public_only_while_a_group_scope_is_unresolved():
@@ -422,26 +423,45 @@ async def test_shared_group_loader_skips_missing_groups_unless_strict(
 
 
 @pytest.fixture
-def dashboard_db(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> MagicMock:
+def auth_stores(monkeypatch: pytest.MonkeyPatch) -> RustAuthStores:
+    return install_rust_auth_stores(monkeypatch)
+
+
+@pytest.fixture
+def dashboard_db(
+    monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest, auth_stores: RustAuthStores
+) -> MagicMock:
     from litellm.proxy import proxy_server
     from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
     prisma: Final = MagicMock()
     prisma.db = prisma.writer_db
     team_id: Final = request.node.name
-    prisma.writer_db.litellm_usertable.find_unique = AsyncMock(return_value=LiteLLM_UserTable(
-        user_id="dashboard-member", teams=[team_id], object_permission_id="user-permission",
-    ))
-    prisma.writer_db.litellm_objectpermissiontable.find_unique = AsyncMock(return_value=_perm(["user-only"]).model_copy(
+    prisma.writer_db.litellm_usertable.find_unique = AsyncMock(
+        return_value=LiteLLM_UserTable(
+            user_id="dashboard-member",
+            teams=[team_id],
+            object_permission_id="user-permission",
+        )
+    )
+    auth_stores.object_permission.reader = auth_stores.object_permission.writer
+    auth_stores.object_permission.writer["user-permission"] = _perm(["user-only"]).model_copy(
         update={"object_permission_id": "user-permission"},
-    ))
-    prisma.writer_db.litellm_teamtable.find_unique = AsyncMock(return_value=LiteLLM_TeamTable(
-        team_id=team_id, members_with_roles=[Member(user_id="dashboard-member", role="user")],
-        object_permission=_perm(["team-skill"]), access_group_ids=["team-group"],
-    ))
-    prisma.writer_db.litellm_accessgrouptable.find_unique = AsyncMock(return_value=LiteLLM_AccessGroupTable(
-        access_group_id="team-group", access_group_name="team-group", access_skill_names=["group-skill"],
-    ))
+    )
+    prisma.writer_db.litellm_teamtable.find_unique = AsyncMock(
+        return_value=LiteLLM_TeamTable(
+            team_id=team_id,
+            members_with_roles=[Member(user_id="dashboard-member", role="user")],
+            object_permission=_perm(["team-skill"]),
+            access_group_ids=["team-group"],
+        )
+    )
+    auth_stores.access_group.reader = auth_stores.access_group.writer
+    auth_stores.access_group.writer["team-group"] = LiteLLM_AccessGroupTable(
+        access_group_id="team-group",
+        access_group_name="team-group",
+        access_skill_names=["group-skill"],
+    )
     monkeypatch.setattr(proxy_server, "prisma_client", prisma)
     monkeypatch.setattr(proxy_server, "user_api_key_cache", UserApiKeyCache())
     monkeypatch.setattr(proxy_server, "proxy_logging_obj", None)
@@ -450,7 +470,9 @@ def dashboard_db(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
 
 def _dashboard_caller(role: LitellmUserRoles = LitellmUserRoles.INTERNAL_USER) -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
-        user_id="dashboard-member", team_id=UI_TEAM_ID, user_role=role,
+        user_id="dashboard-member",
+        team_id=UI_TEAM_ID,
+        user_role=role,
         object_permission=_perm(["session-only"]),
     )
 
@@ -466,7 +488,8 @@ async def test_dashboard_visibility_without_user_identity_is_public_only(dashboa
 @pytest.mark.asyncio
 @pytest.mark.parametrize("role", (LitellmUserRoles.INTERNAL_USER, LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY))
 async def test_dashboard_reads_own_user_team_and_group_grants_without_session_grants(
-    dashboard_db: MagicMock, role: LitellmUserRoles,
+    dashboard_db: MagicMock,
+    role: LitellmUserRoles,
 ) -> None:
     visibility: Final = await resolve_skill_visibility(_dashboard_caller(role))
     assert visibility.granted == frozenset({"team-skill", "group-skill", "user-only"})
@@ -474,24 +497,33 @@ async def test_dashboard_reads_own_user_team_and_group_grants_without_session_gr
     assert visibility.allows(_plugin("team-skill", enabled=False))
     assert visibility.allows(_plugin("user-only", enabled=False))
     assert not visibility.allows(_plugin("session-only", enabled=False))
-    assert visibility.where() == {"OR": [
-        {"enabled": True}, {"name": {"in": ["group-skill", "team-skill", "user-only"]}},
-    ]}
+    assert visibility.where() == {
+        "OR": [
+            {"enabled": True},
+            {"name": {"in": ["group-skill", "team-skill", "user-only"]}},
+        ]
+    }
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("change", ("roster", "blocked", "grants", "team", "group", "memberships", "user"))
 async def test_dashboard_revocation_is_visible_with_warm_caches(
-    dashboard_db: MagicMock, change: str,
+    dashboard_db: MagicMock,
+    auth_stores: RustAuthStores,
+    change: str,
 ) -> None:
     caller: Final = _dashboard_caller()
     assert (await resolve_skill_visibility(caller)).granted == frozenset({"team-skill", "group-skill", "user-only"})
     table: Final = dashboard_db.writer_db.litellm_teamtable
     team: Final = table.find_unique.return_value
     if change == "roster":
-        table.find_unique.return_value = team.model_copy(update={"members_with_roles": [
-            Member(user_id="another-user", role="admin"),
-        ]})
+        table.find_unique.return_value = team.model_copy(
+            update={
+                "members_with_roles": [
+                    Member(user_id="another-user", role="admin"),
+                ]
+            }
+        )
     elif change == "blocked":
         table.find_unique.return_value = team.model_copy(update={"blocked": True})
     elif change == "grants":
@@ -499,7 +531,7 @@ async def test_dashboard_revocation_is_visible_with_warm_caches(
     elif change == "team":
         table.find_unique.return_value = None
     elif change == "group":
-        dashboard_db.writer_db.litellm_accessgrouptable.find_unique.return_value = None
+        del auth_stores.access_group.writer["team-group"]
     elif change == "memberships":
         users: Final = dashboard_db.writer_db.litellm_usertable
         users.find_unique.return_value = users.find_unique.return_value.model_copy(update={"teams": []})
@@ -515,33 +547,50 @@ async def test_dashboard_revocation_is_visible_with_warm_caches(
 async def test_dashboard_unions_independent_team_grants(dashboard_db: MagicMock) -> None:
     users: Final = dashboard_db.writer_db.litellm_usertable
     first: Final = dashboard_db.writer_db.litellm_teamtable.find_unique.return_value
-    second: Final = first.model_copy(update={
-        "team_id": "second-team", "object_permission": _perm(["second-skill"]), "access_group_ids": [],
-    })
-    users.find_unique.return_value = users.find_unique.return_value.model_copy(update={
-        "teams": [first.team_id, second.team_id],
-    })
+    second: Final = first.model_copy(
+        update={
+            "team_id": "second-team",
+            "object_permission": _perm(["second-skill"]),
+            "access_group_ids": [],
+        }
+    )
+    users.find_unique.return_value = users.find_unique.return_value.model_copy(
+        update={
+            "teams": [first.team_id, second.team_id],
+        }
+    )
     dashboard_db.writer_db.litellm_teamtable.find_unique.side_effect = [first, second]
-    assert (await resolve_skill_visibility(_dashboard_caller())).granted == frozenset({
-        "team-skill", "group-skill", "second-skill", "user-only",
-    })
+    assert (await resolve_skill_visibility(_dashboard_caller())).granted == frozenset(
+        {
+            "team-skill",
+            "group-skill",
+            "second-skill",
+            "user-only",
+        }
+    )
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("source", ("litellm_teamtable", "litellm_accessgrouptable"))
 async def test_dashboard_team_read_fault_keeps_only_independent_grants(
-    dashboard_db: MagicMock, source: str,
+    dashboard_db: MagicMock,
+    auth_stores: RustAuthStores,
+    source: str,
 ) -> None:
     caller: Final = _dashboard_caller()
     assert (await resolve_skill_visibility(caller)).granted == frozenset({"team-skill", "group-skill", "user-only"})
-    getattr(dashboard_db.writer_db, source).find_unique.side_effect = RuntimeError("database unavailable")
+    if source == "litellm_teamtable":
+        dashboard_db.writer_db.litellm_teamtable.find_unique.side_effect = RuntimeError("database unavailable")
+    else:
+        auth_stores.access_group.writer["team-group"] = RuntimeError("database unavailable")
     assert (await resolve_skill_visibility(caller)).granted == frozenset({"user-only"})
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("team_id", (None, "ordinary-team"))
 async def test_ordinary_key_does_not_inherit_owners_other_teams(
-    dashboard_db: MagicMock, team_id: str | None,
+    dashboard_db: MagicMock,
+    team_id: str | None,
 ) -> None:
     caller: Final = _dashboard_caller().model_copy(update={"team_id": team_id})
     loader: Final = AsyncMock(return_value=AccessGroupSkills())
@@ -552,29 +601,35 @@ async def test_ordinary_key_does_not_inherit_owners_other_teams(
 @pytest.mark.asyncio
 @pytest.mark.parametrize("change", ("clear", "unlink", "deleted", "malformed", "fault"))
 async def test_dashboard_direct_grant_revocation_preserves_independent_team_grants(
-    dashboard_db: MagicMock, change: str,
+    dashboard_db: MagicMock,
+    auth_stores: RustAuthStores,
+    change: str,
 ) -> None:
     caller: Final = _dashboard_caller()
     assert "user-only" in (await resolve_skill_visibility(caller)).granted
-    permissions: Final = dashboard_db.writer_db.litellm_objectpermissiontable
+    permissions: Final = auth_stores.object_permission.writer
     if change == "clear":
-        permissions.find_unique.return_value = _perm([])
+        permissions["user-permission"] = _perm([])
     elif change == "unlink":
         users: Final = dashboard_db.writer_db.litellm_usertable
-        users.find_unique.return_value = users.find_unique.return_value.model_copy(update={"object_permission_id": None})
+        users.find_unique.return_value = users.find_unique.return_value.model_copy(
+            update={"object_permission_id": None}
+        )
     elif change == "deleted":
-        permissions.find_unique.return_value = None
+        del permissions["user-permission"]
     elif change == "malformed":
-        permissions.find_unique.return_value = _perm([]).model_copy(update={"skills": 42})
+        permissions["user-permission"] = _perm([]).model_copy(update={"skills": 42})
     else:
-        permissions.find_unique.side_effect = RuntimeError("database unavailable")
+        permissions["user-permission"] = RuntimeError("database unavailable")
     assert (await resolve_skill_visibility(caller)).granted == frozenset({"team-skill", "group-skill"})
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("change", ("inactive", "malformed", "fault", "database"))
 async def test_dashboard_unreadable_or_inactive_user_never_reuses_grants(
-    dashboard_db: MagicMock, change: str, monkeypatch: pytest.MonkeyPatch,
+    dashboard_db: MagicMock,
+    change: str,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from litellm.proxy import proxy_server
 
@@ -582,7 +637,9 @@ async def test_dashboard_unreadable_or_inactive_user_never_reuses_grants(
     assert "user-only" in (await resolve_skill_visibility(caller)).granted
     users: Final = dashboard_db.writer_db.litellm_usertable
     if change == "inactive":
-        users.find_unique.return_value = users.find_unique.return_value.model_copy(update={"metadata": {"scim_active": False}})
+        users.find_unique.return_value = users.find_unique.return_value.model_copy(
+            update={"metadata": {"scim_active": False}}
+        )
     elif change == "malformed":
         users.find_unique.return_value = users.find_unique.return_value.model_copy(update={"user_id": None})
     elif change == "database":

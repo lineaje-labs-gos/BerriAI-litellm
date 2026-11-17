@@ -5,9 +5,11 @@ ObjectPermission repository for database operations on LiteLLM_ObjectPermissionT
 from typing import TYPE_CHECKING, Final
 
 from litellm.models.object_permission import LiteLLM_ObjectPermissionTable
+from litellm.repositories import rust_database
 from litellm.repositories.base_repository import BaseRepository
 from litellm.repositories.prisma_protocols import TableActions
 from litellm.repositories.table_repositories import PrismaTableRepository
+from litellm.rust_bridge._native import RustObjectPermissionRepository
 
 if TYPE_CHECKING:
     from prisma import models as prisma_models
@@ -27,6 +29,17 @@ class ObjectPermissionRepository(BaseRepository[LiteLLM_ObjectPermissionTable]):
     @property
     def table(self) -> TableActions["prisma_models.LiteLLM_ObjectPermissionTable"]:
         return _ObjectPermissionTable(self._prisma_client, use_writer=self._use_writer).table
+
+    async def find_for_auth(
+        self, object_permission_id: str, *, use_writer: bool = False
+    ) -> LiteLLM_ObjectPermissionTable | None:
+        """The object permission, read by the Rust repository from the writer when ``use_writer`` is set."""
+        return rust_database.decode(
+            LiteLLM_ObjectPermissionTable,
+            await rust_database.required_repository(RustObjectPermissionRepository).find(
+                object_permission_id, use_writer=use_writer
+            ),
+        )
 
     @property
     def model_class(self) -> type[LiteLLM_ObjectPermissionTable]:

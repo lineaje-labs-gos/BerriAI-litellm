@@ -1,0 +1,400 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT t.tag_name AS \"tag_name!\",\n       t.description,\n       t.models,\n       t.model_info AS \"model_info: RawJson\",\n       t.spend AS \"spend!\",\n       t.budget_id,\n       t.created_at AS \"created_at!\",\n       t.created_by,\n       t.updated_at AS \"updated_at!\",\n       b.budget_id AS \"budget_budget_id?\",\n       b.name AS \"budget_name?\",\n       b.max_budget AS \"budget_max_budget?\",\n       b.soft_budget AS \"budget_soft_budget?\",\n       b.max_parallel_requests AS \"budget_max_parallel_requests?\",\n       b.tpm_limit AS \"budget_tpm_limit?\",\n       b.rpm_limit AS \"budget_rpm_limit?\",\n       b.tpd_limit AS \"budget_tpd_limit?\",\n       b.model_max_budget AS \"budget_model_max_budget?: RawJson\",\n       b.model_tpm_limit AS \"budget_model_tpm_limit?: RawJson\",\n       b.model_rpm_limit AS \"budget_model_rpm_limit?: RawJson\",\n       b.budget_duration AS \"budget_budget_duration?\",\n       b.budget_limits AS \"budget_budget_limits?: RawJson\",\n       b.cap_policy AS \"budget_cap_policy?\",\n       b.budget_reset_at AS \"budget_budget_reset_at?\",\n       b.budget_reset_count AS \"budget_budget_reset_count?\",\n       b.allowed_models AS \"budget_allowed_models?\",\n       b.temp_budget_increase AS \"budget_temp_budget_increase?\",\n       b.temp_budget_expiry AS \"budget_temp_budget_expiry?\",\n       b.created_at AS \"budget_created_at?\",\n       b.created_by AS \"budget_created_by?\",\n       b.updated_at AS \"budget_updated_at?\",\n       b.updated_by AS \"budget_updated_by?\"\nFROM \"LiteLLM_TagTable\" AS t\nLEFT JOIN \"LiteLLM_BudgetTable\" AS b ON b.budget_id = t.budget_id\nWHERE t.tag_name = ANY($1)\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "tag_name!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_TagTable\"",
+            "name": "tag_name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_TagTable\"",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "models",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_TagTable\"",
+            "name": "models"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "model_info: RawJson",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_TagTable\"",
+            "name": "model_info"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "spend!",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_TagTable\"",
+            "name": "spend"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "budget_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_TagTable\"",
+            "name": "budget_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at!",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_TagTable\"",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "created_by",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_TagTable\"",
+            "name": "created_by"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "updated_at!",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_TagTable\"",
+            "name": "updated_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "budget_budget_id?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "budget_id"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "budget_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "budget_max_budget?",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "max_budget"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "budget_soft_budget?",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "soft_budget"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "budget_max_parallel_requests?",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "max_parallel_requests"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "budget_tpm_limit?",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "tpm_limit"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "budget_rpm_limit?",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "rpm_limit"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "budget_tpd_limit?",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "tpd_limit"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "budget_model_max_budget?: RawJson",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "model_max_budget"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "budget_model_tpm_limit?: RawJson",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "model_tpm_limit"
+          }
+        }
+      },
+      {
+        "ordinal": 19,
+        "name": "budget_model_rpm_limit?: RawJson",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "model_rpm_limit"
+          }
+        }
+      },
+      {
+        "ordinal": 20,
+        "name": "budget_budget_duration?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "budget_duration"
+          }
+        }
+      },
+      {
+        "ordinal": 21,
+        "name": "budget_budget_limits?: RawJson",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "budget_limits"
+          }
+        }
+      },
+      {
+        "ordinal": 22,
+        "name": "budget_cap_policy?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "cap_policy"
+          }
+        }
+      },
+      {
+        "ordinal": 23,
+        "name": "budget_budget_reset_at?",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "budget_reset_at"
+          }
+        }
+      },
+      {
+        "ordinal": 24,
+        "name": "budget_budget_reset_count?",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "budget_reset_count"
+          }
+        }
+      },
+      {
+        "ordinal": 25,
+        "name": "budget_allowed_models?",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "allowed_models"
+          }
+        }
+      },
+      {
+        "ordinal": 26,
+        "name": "budget_temp_budget_increase?",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "temp_budget_increase"
+          }
+        }
+      },
+      {
+        "ordinal": 27,
+        "name": "budget_temp_budget_expiry?",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "temp_budget_expiry"
+          }
+        }
+      },
+      {
+        "ordinal": 28,
+        "name": "budget_created_at?",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 29,
+        "name": "budget_created_by?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "created_by"
+          }
+        }
+      },
+      {
+        "ordinal": 30,
+        "name": "budget_updated_at?",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "updated_at"
+          }
+        }
+      },
+      {
+        "ordinal": 31,
+        "name": "budget_updated_by?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_BudgetTable\"",
+            "name": "updated_by"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "76886ad99ec42036e96a8f1257fb7355a72b955bddfa0a96816650e761ced4d4"
+}

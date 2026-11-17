@@ -6,6 +6,8 @@ macro_rules_attribute::attribute_alias! {
         #[derive(Clone, Debug, PartialEq, sqlx::FromRow)];
 }
 
+mod access_group;
+mod budget;
 mod daily_spend;
 mod deadline;
 mod end_user;
@@ -16,15 +18,20 @@ mod health;
 mod jwt_key_mapping;
 mod key;
 mod model_access_group;
+mod object_permission;
 mod observe;
 mod pools;
+mod project;
 mod raw_json;
 mod spend;
 mod statements;
+mod tag;
 #[cfg(test)]
 mod test_support;
 pub mod utc_timestamp;
 
+pub use access_group::{AccessGroup, find_access_group};
+pub use budget::Budget;
 pub use daily_spend::{DailyEndUserRow, DailyTeamRow, DailyUserRow};
 pub use deadline::within;
 pub use end_user::{EndUser, RateLimits, find_end_user};
@@ -37,8 +44,10 @@ pub use key::{DeprecatedKey, KeyViewRow, find_deprecated_key, find_key_view};
 pub use model_access_group::{
     ModelAccessGroupBudgetRow, find_model_access_group_budgets, model_access_group_names,
 };
+pub use object_permission::{ObjectPermission, find_object_permission};
 pub use observe::{Call, Observer, Outcome, QueryEvent, observe};
 pub use pools::Pools;
+pub use project::{Project, find_project};
 pub use raw_json::RawJson;
 pub use spend::{
     DailySpend, DailyTable, EntitySpend, SpendLog, SpendLogRow, TeamMemberSpend,
@@ -47,3 +56,4 @@ pub use spend::{
     upsert_daily_team_spend, upsert_daily_user_spend,
 };
 pub use statements::Statements;
+pub use tag::{Tag, find_tag_names, find_tags};

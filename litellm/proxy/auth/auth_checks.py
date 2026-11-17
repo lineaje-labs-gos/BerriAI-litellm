@@ -359,16 +359,6 @@ class _VectorStorePermissionsRow(Protocol):
     def vector_stores(self) -> Sequence[str] | None: ...
 
 
-class _PrismaTagRow(Protocol):
-    tag_name: str
-
-    def dict(self) -> Mapping[str, object]: ...
-
-
-def _tag_table(repo: _PrismaTableHolder[_PrismaTagRow]) -> _PrismaAuthTable[_PrismaTagRow]:
-    return repo.table
-
-
 class _PrismaEndUserRow(Protocol):
     user_id: str
 
@@ -2611,10 +2601,7 @@ async def _load_tag_registry(
     """The set of tag names that have a row in ``LiteLLM_TagTable``."""
 
     async def fetch_ids() -> tuple[str, ...]:
-        registry_rows: Final = await _tag_table(TagRepository(prisma_client)).find_many(
-            take=TAG_REGISTRY_MAX_SIZE + 1,
-        )
-        return tuple(row.tag_name for row in registry_rows)
+        return await TagRepository(prisma_client).names(TAG_REGISTRY_MAX_SIZE + 1)
 
     return await _load_bounded_registry(
         cache_key=tag_registry_cache_key(),
@@ -2743,11 +2730,8 @@ async def _fetch_uncached_tags(
         return ()
 
     try:
-        db_tags: Final = await _tag_table(TagRepository(prisma_client)).find_many(
-            where={"tag_name": {"in": list(tags_to_fetch)}},
-            include={"litellm_budget_table": True},
-        )
-        fetched: Final = tuple((db_tag.tag_name, LiteLLM_TagTable.model_validate(db_tag.dict())) for db_tag in db_tags)
+        db_tags: Final = await TagRepository(prisma_client).find_many_for_auth(tags_to_fetch)
+        fetched: Final = tuple((tag.tag_name, tag) for tag in db_tags)
         for fetched_name, fetched_obj in fetched:
             await user_api_key_cache.async_set_cache(
                 key=tag_cache_key(fetched_name),
@@ -2783,7 +2767,6 @@ async def _probe_and_fetch_tags(
     return found, fetched if isinstance(fetched, Exception) else None
 
 
-@log_db_metrics
 @with_service_target(AUTH_OBJECTS_TARGET)
 async def read_tag_objects_batch(
     tag_names: Sequence[str],
@@ -2795,7 +2778,6 @@ async def read_tag_objects_batch(
     return found if error is None else error
 
 
-@log_db_metrics
 @with_service_target(AUTH_OBJECTS_TARGET)
 async def get_tag_objects_batch(
     tag_names: Sequence[str],
@@ -2831,7 +2813,6 @@ async def get_tag_objects_batch(
     return dict(found)
 
 
-@log_db_metrics
 async def get_tag_object(
     tag_name: str | None,
     prisma_client: PrismaClient | None,
@@ -4015,7 +3996,6 @@ async def delete_cache_access_object(
 _delete_cache_access_object: Final = delete_cache_access_object
 
 
-@log_db_metrics
 @with_service_target(AUTH_OBJECTS_TARGET)
 async def get_access_object(
     access_group_id: str,
@@ -4049,14 +4029,12 @@ async def get_access_object(
 
     # Not in cache - fetch from DB
     try:
-        response: Final = await _dictable_table(
-            AccessGroupRepository(prisma_client, use_writer=check_db_only), "access_group"
-        ).find_unique(where={"access_group_id": access_group_id})
+        _response: Final = await AccessGroupRepository(prisma_client).find_for_auth(
+            access_group_id, use_writer=check_db_only
+        )
 
-        if response is None:
+        if _response is None:
             raise AccessGroupNotFoundError(access_group_id=access_group_id)
-
-        _response: Final = LiteLLM_AccessGroupTable.model_validate(response.dict())
 
         # Save to cache
         await cache_access_object(
@@ -4597,7 +4575,6 @@ def copy_user_api_key_auth_for_cache(
 _copy_user_api_key_auth_for_cache: Final = copy_user_api_key_auth_for_cache
 
 
-@log_db_metrics
 @with_service_target(AUTH_OBJECTS_TARGET)
 async def get_object_permission(
     object_permission_id: str,
@@ -4630,16 +4607,14 @@ async def get_object_permission(
 
     # else, check db
     try:
-        response: Final = await _dictable_table(
-            ObjectPermissionRepository(prisma_client, use_writer=check_db_only), "object_permission"
-        ).find_unique(where={"object_permission_id": object_permission_id})
+        _perm_obj: Final = await ObjectPermissionRepository(prisma_client).find_for_auth(
+            object_permission_id, use_writer=check_db_only
+        )
 
-        if response is None:
+        if _perm_obj is None:
             if check_db_only:
                 raise HTTPException(status_code=403, detail="Referenced object permission does not exist")
             return None
-
-        _perm_obj: Final = LiteLLM_ObjectPermissionTable.model_validate(response.dict())
         await user_api_key_cache.async_set_cache(
             key=key,
             value=_perm_obj,
@@ -7946,10 +7921,7 @@ async def get_project_object(
         return deserialized_project
 
     # Fetch from DB
-    project_row: Final = await _model_dump_table(ProjectRepository(prisma_client), "project").find_unique(
-        where={"project_id": project_id},
-        include={"litellm_budget_table": True},
-    )
+    project_row: Final = await ProjectRepository(prisma_client).find_for_auth(project_id)
     if project_row is None:
         return None
 

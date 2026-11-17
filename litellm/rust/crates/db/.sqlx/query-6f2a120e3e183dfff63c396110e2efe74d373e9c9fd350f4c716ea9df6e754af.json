@@ -1,0 +1,196 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT access_group_id,\n       access_group_name,\n       description,\n       access_model_names,\n       access_mcp_server_ids,\n       mcp_tool_permissions AS \"mcp_tool_permissions: RawJson\",\n       access_agent_ids,\n       access_skill_names,\n       access_vector_store_ids,\n       assigned_team_ids,\n       assigned_key_ids,\n       created_at,\n       created_by,\n       updated_at,\n       updated_by\nFROM \"LiteLLM_AccessGroupTable\"\nWHERE access_group_id = $1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "access_group_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_AccessGroupTable\"",
+            "name": "access_group_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "access_group_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_AccessGroupTable\"",
+            "name": "access_group_name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_AccessGroupTable\"",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "access_model_names",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_AccessGroupTable\"",
+            "name": "access_model_names"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "access_mcp_server_ids",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_AccessGroupTable\"",
+            "name": "access_mcp_server_ids"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "mcp_tool_permissions: RawJson",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_AccessGroupTable\"",
+            "name": "mcp_tool_permissions"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "access_agent_ids",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_AccessGroupTable\"",
+            "name": "access_agent_ids"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "access_skill_names",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_AccessGroupTable\"",
+            "name": "access_skill_names"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "access_vector_store_ids",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_AccessGroupTable\"",
+            "name": "access_vector_store_ids"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "assigned_team_ids",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_AccessGroupTable\"",
+            "name": "assigned_team_ids"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "assigned_key_ids",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_AccessGroupTable\"",
+            "name": "assigned_key_ids"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "created_at",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_AccessGroupTable\"",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "created_by",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_AccessGroupTable\"",
+            "name": "created_by"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "updated_at",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_AccessGroupTable\"",
+            "name": "updated_at"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "updated_by",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "\"LiteLLM_AccessGroupTable\"",
+            "name": "updated_by"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "6f2a120e3e183dfff63c396110e2efe74d373e9c9fd350f4c716ea9df6e754af"
+}

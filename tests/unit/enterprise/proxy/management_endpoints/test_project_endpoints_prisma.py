@@ -3,12 +3,12 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Final
-from litellm._uuid import uuid
 from unittest import mock
 
 from dotenv import load_dotenv
 from fastapi import HTTPException, Request
 
+from litellm._uuid import uuid
 from litellm.constants import PROXY_DB_LOOKUP_STALL_WINDOW_SECONDS
 from litellm.proxy.db.db_lookup_gate import db_lookup_stall_tracker
 
@@ -16,39 +16,37 @@ load_dotenv()
 
 
 import pytest
+from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    delete_project,
+    new_project,
+    project_info,
+    update_project,
+)
 
 import litellm
-from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
-    new_project,
-    update_project,
-    delete_project,
-    project_info,
+from litellm.caching.caching import DualCache
+from litellm.proxy._types import (
+    DeleteProjectRequest,
+    LiteLLM_OrganizationMembershipTable,
+    LiteLLM_ProjectTable,
+    LiteLLM_TeamTable,
+    LiteLLM_UserTable,
+    Member,
+    NewProjectRequest,
+    ProxyException,
+    UpdateProjectRequest,
+    UserAPIKeyAuth,
 )
+from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from litellm.proxy.management.teams.authz import TeamAccess
+from litellm.proxy.management.users.service import PrismaOrgRoles
 from litellm.proxy.management_helpers.model_quota_policy import ModelRoute, TeamDeployment, router_model_routes
 from litellm.proxy.proxy_server import (
     LitellmUserRoles,
 )
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 from litellm.proxy.utils import ProxyLogging
-
-
-
-from litellm.caching.caching import DualCache
-from litellm.proxy._types import (
-    LiteLLM_ProjectTable,
-    NewProjectRequest,
-    UpdateProjectRequest,
-    DeleteProjectRequest,
-    UserAPIKeyAuth,
-    LiteLLM_OrganizationMembershipTable,
-    LiteLLM_TeamTable,
-    LiteLLM_UserTable,
-    Member,
-    ProxyException,
-)
-from litellm.proxy.management.teams.authz import TeamAccess
-from litellm.proxy.management.users.service import PrismaOrgRoles
 from tests._master_key import MASTER_KEY
+from tests.unit.proxy.rust_auth_stores import install_rust_auth_stores
 
 proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -63,6 +61,7 @@ def test_check_team_project_limits_models_not_in_team():
     from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
         _check_team_project_limits,
     )
+
     from litellm.proxy._types import LiteLLM_TeamTable
 
     team = LiteLLM_TeamTable(
@@ -89,6 +88,7 @@ def test_check_team_project_limits_budget_exceeds_team():
     from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
         _check_team_project_limits,
     )
+
     from litellm.proxy._types import LiteLLM_TeamTable
 
     team = LiteLLM_TeamTable(
@@ -103,7 +103,7 @@ def test_check_team_project_limits_budget_exceeds_team():
         max_budget=150.0,  # exceeds team's 100.0
     )
 
-    with pytest.raises(Exception, match='Project max_budget') as exc_info:
+    with pytest.raises(Exception, match="Project max_budget") as exc_info:
         _check_team_project_limits(team_object=team, data=data)
 
     assert "exceeds team's max_budget" in str(exc_info.value.detail)
@@ -116,6 +116,7 @@ def test_check_team_project_limits_valid_subset():
     from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
         _check_team_project_limits,
     )
+
     from litellm.proxy._types import LiteLLM_TeamTable
 
     team = LiteLLM_TeamTable(
@@ -141,6 +142,7 @@ def test_check_team_project_limits_all_proxy_models():
     from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
         _check_team_project_limits,
     )
+
     from litellm.proxy._types import LiteLLM_TeamTable
 
     team = LiteLLM_TeamTable(
@@ -164,6 +166,7 @@ def test_check_team_project_limits_tpm_exceeds_team():
     from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
         _check_team_project_limits,
     )
+
     from litellm.proxy._types import LiteLLM_TeamTable
 
     team = LiteLLM_TeamTable(
@@ -178,7 +181,7 @@ def test_check_team_project_limits_tpm_exceeds_team():
         tpm_limit=20000,  # exceeds team's 10000
     )
 
-    with pytest.raises(Exception, match='Project tpm_limit') as exc_info:
+    with pytest.raises(Exception, match="Project tpm_limit") as exc_info:
         _check_team_project_limits(team_object=team, data=data)
 
     assert "exceeds team's tpm_limit" in str(exc_info.value.detail)
@@ -191,6 +194,7 @@ def test_check_team_project_limits_negative_budget():
     from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
         _check_team_project_limits,
     )
+
     from litellm.proxy._types import LiteLLM_TeamTable
 
     team = LiteLLM_TeamTable(
@@ -204,7 +208,7 @@ def test_check_team_project_limits_negative_budget():
         max_budget=-10.0,
     )
 
-    with pytest.raises(Exception, match='max_budget cannot be negative\\. Received') as exc_info:
+    with pytest.raises(Exception, match="max_budget cannot be negative\\. Received") as exc_info:
         _check_team_project_limits(team_object=team, data=data)
 
     assert "cannot be negative" in str(exc_info.value.detail)
@@ -217,6 +221,7 @@ def test_check_team_project_limits_soft_budget_gte_max():
     from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
         _check_team_project_limits,
     )
+
     from litellm.proxy._types import LiteLLM_TeamTable
 
     team = LiteLLM_TeamTable(
@@ -231,7 +236,7 @@ def test_check_team_project_limits_soft_budget_gte_max():
         soft_budget=100.0,  # equal to max, should fail
     )
 
-    with pytest.raises(Exception, match='must be strictly lower than max_budget') as exc_info:
+    with pytest.raises(Exception, match="must be strictly lower than max_budget") as exc_info:
         _check_team_project_limits(team_object=team, data=data)
 
     assert "must be strictly lower" in str(exc_info.value.detail)
@@ -263,10 +268,7 @@ def test_project_model_access_denied_error_type():
     from litellm.proxy._types import ProxyErrorTypes
 
     assert hasattr(ProxyErrorTypes, "project_model_access_denied")
-    assert (
-        ProxyErrorTypes.project_model_access_denied.value
-        == "project_model_access_denied"
-    )
+    assert ProxyErrorTypes.project_model_access_denied.value == "project_model_access_denied"
 
     # Test the classmethod resolves correctly
     result = ProxyErrorTypes.get_model_access_error_type_for_object("project")
@@ -279,8 +281,8 @@ def test_project_cached_obj_has_last_refreshed_at():
     matching LiteLLM_TeamTableCachedObj pattern.
     """
     from litellm.proxy._types import (
-        LiteLLM_ProjectTableCachedObj,
         LiteLLM_ProjectTable,
+        LiteLLM_ProjectTableCachedObj,
     )
 
     # Verify inheritance
@@ -305,11 +307,11 @@ async def test_project_max_budget_check_fires_alert():
     Test that _project_max_budget_check fires a budget alert
     when project exceeds its max budget (matches _team_max_budget_check pattern).
     """
-    from litellm.proxy.auth.auth_checks import _project_max_budget_check
     from litellm.proxy._types import (
         LiteLLM_BudgetTable,
         LiteLLM_ProjectTableCachedObj,
     )
+    from litellm.proxy.auth.auth_checks import _project_max_budget_check
 
     project = LiteLLM_ProjectTableCachedObj(
         project_id="test-project",
@@ -344,11 +346,11 @@ async def test_project_soft_budget_check():
     """
     Test that _project_soft_budget_check triggers alert when soft budget is exceeded.
     """
-    from litellm.proxy.auth.auth_checks import _project_soft_budget_check
     from litellm.proxy._types import (
         LiteLLM_BudgetTable,
         LiteLLM_ProjectTableCachedObj,
     )
+    from litellm.proxy.auth.auth_checks import _project_soft_budget_check
 
     project = LiteLLM_ProjectTableCachedObj(
         project_id="test-project",
@@ -380,11 +382,11 @@ async def test_project_soft_budget_check_no_alert_under_budget():
     """
     Test that _project_soft_budget_check does NOT trigger alert when under soft budget.
     """
-    from litellm.proxy.auth.auth_checks import _project_soft_budget_check
     from litellm.proxy._types import (
         LiteLLM_BudgetTable,
         LiteLLM_ProjectTableCachedObj,
     )
+    from litellm.proxy.auth.auth_checks import _project_soft_budget_check
 
     project = LiteLLM_ProjectTableCachedObj(
         project_id="test-project",
@@ -430,7 +432,6 @@ async def test_list_projects_returns_timestamps():
     from unittest.mock import AsyncMock, MagicMock, patch
 
     from litellm_enterprise.proxy.management_endpoints.project_endpoints import list_projects
-    from litellm.proxy._types import LiteLLM_ProjectTable
 
     now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
 
@@ -463,9 +464,7 @@ async def test_list_projects_returns_timestamps():
     fake_project.updated_at = now
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_projecttable.find_many = AsyncMock(
-        return_value=[fake_project]
-    )
+    mock_prisma.db.litellm_projecttable.find_many = AsyncMock(return_value=[fake_project])
 
     with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
         response = await list_projects(
@@ -509,16 +508,13 @@ async def test_update_project_invalidates_cached_project_object(monkeypatch):
     project_id = f"project-{uuid.uuid4()}"
     cache = UserApiKeyCache()
 
-    stale_row = MagicMock()
-    stale_row.model_dump = lambda: {"project_id": project_id, "team_id": None, "models": []}
+    stores = install_rust_auth_stores(monkeypatch)
+    stores.project.seed(project_id, LiteLLM_ProjectTable(project_id=project_id, team_id=None, models=[]))
 
     mock_prisma = MagicMock()
     mock_prisma.jsonify_object = lambda data: data
-    mock_prisma.db.litellm_projecttable.find_unique = AsyncMock(return_value=stale_row)
 
-    seeded = await get_project_object(
-        project_id=project_id, prisma_client=mock_prisma, user_api_key_cache=cache
-    )
+    seeded = await get_project_object(project_id=project_id, prisma_client=mock_prisma, user_api_key_cache=cache)
     assert seeded is not None and seeded.models == []
 
     updated_models = ["gemini-2.5-flash-image", "gemini-3.1-flash-lite-preview"]
@@ -547,10 +543,8 @@ async def test_update_project_invalidates_cached_project_object(monkeypatch):
         ),
     )
 
-    mock_prisma.db.litellm_projecttable.find_unique = AsyncMock(return_value=updated_row)
-    refreshed = await get_project_object(
-        project_id=project_id, prisma_client=mock_prisma, user_api_key_cache=cache
-    )
+    stores.project.seed(project_id, LiteLLM_ProjectTable(project_id=project_id, team_id=None, models=updated_models))
+    refreshed = await get_project_object(project_id=project_id, prisma_client=mock_prisma, user_api_key_cache=cache)
     assert refreshed is not None
     assert refreshed.models == updated_models
 
@@ -569,15 +563,15 @@ async def test_delete_project_invalidates_cached_project_object(monkeypatch):
     project_id = f"project-{uuid.uuid4()}"
     cache = UserApiKeyCache()
 
+    stores = install_rust_auth_stores(monkeypatch)
+    stores.project.seed(project_id, LiteLLM_ProjectTable(project_id=project_id, team_id=None, models=["gpt-5.5"]))
     row = MagicMock()
     row.model_dump = lambda: {"project_id": project_id, "team_id": None, "models": ["gpt-5.5"]}
 
     mock_prisma = MagicMock()
     mock_prisma.db.litellm_projecttable.find_unique = AsyncMock(return_value=row)
 
-    seeded = await get_project_object(
-        project_id=project_id, prisma_client=mock_prisma, user_api_key_cache=cache
-    )
+    seeded = await get_project_object(project_id=project_id, prisma_client=mock_prisma, user_api_key_cache=cache)
     assert seeded is not None
 
     mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
@@ -597,13 +591,9 @@ async def test_delete_project_invalidates_cached_project_object(monkeypatch):
         ),
     )
 
-    mock_prisma.db.litellm_projecttable.find_unique = AsyncMock(return_value=None)
-    assert (
-        await get_project_object(
-            project_id=project_id, prisma_client=mock_prisma, user_api_key_cache=cache
-        )
-        is None
-    )
+    stores.project.reader.pop(project_id)
+    stores.project.writer.pop(project_id)
+    assert await get_project_object(project_id=project_id, prisma_client=mock_prisma, user_api_key_cache=cache) is None
 
 
 @pytest.mark.asyncio
@@ -662,9 +652,7 @@ async def test_project_eviction_publishes_cross_worker_invalidation(monkeypatch)
         "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.publish_auth_cache_invalidation",
         new=AsyncMock(),
     ) as mock_publish:
-        await delete_cached_project_object(
-            project_id=project_id, user_api_key_cache=UserApiKeyCache()
-        )
+        await delete_cached_project_object(project_id=project_id, user_api_key_cache=UserApiKeyCache())
 
     mock_publish.assert_awaited_once_with(cache_key=f"project_id:{project_id}")
 
@@ -758,10 +746,11 @@ def test_update_quota_adds_model_without_quota_rejected():
     """Adding a model via /project/update without quota is rejected (the bypass)."""
     import types
 
-    from litellm.proxy._types import UpdateProjectRequest
     from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
         _raise_on_missing_project_model_quota_on_update,
     )
+
+    from litellm.proxy._types import UpdateProjectRequest
 
     existing = types.SimpleNamespace(models=[], metadata={})
     data = UpdateProjectRequest(project_id="p", models=["gpt-5.5"])  # adds model, no quota
@@ -773,10 +762,11 @@ def test_update_quota_adds_model_with_quota_passes():
     """Adding a model with a positive quota via update passes."""
     import types
 
-    from litellm.proxy._types import UpdateProjectRequest
     from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
         _raise_on_missing_project_model_quota_on_update,
     )
+
+    from litellm.proxy._types import UpdateProjectRequest
 
     existing = types.SimpleNamespace(models=[], metadata={})
     data = UpdateProjectRequest(
@@ -792,10 +782,11 @@ def test_update_quota_partial_update_keeps_existing_valid_passes():
     """A partial update that doesn't touch models/quota keeps existing valid quota -> passes."""
     import types
 
-    from litellm.proxy._types import UpdateProjectRequest
     from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
         _raise_on_missing_project_model_quota_on_update,
     )
+
+    from litellm.proxy._types import UpdateProjectRequest
 
     existing = types.SimpleNamespace(
         models=["gpt-5.5"],
@@ -809,10 +800,11 @@ def test_update_quota_existing_quotaless_model_rejected():
     """A project already holding a quota-less model is rejected on any update (fail-closed)."""
     import types
 
-    from litellm.proxy._types import UpdateProjectRequest
     from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
         _raise_on_missing_project_model_quota_on_update,
     )
+
+    from litellm.proxy._types import UpdateProjectRequest
 
     existing = types.SimpleNamespace(models=["gpt-5.5"], metadata={})
     data = UpdateProjectRequest(project_id="p", description="unrelated change")
@@ -823,8 +815,9 @@ def test_update_quota_existing_quotaless_model_rejected():
 def _enforced_new_project_mocks(
     monkeypatch: pytest.MonkeyPatch, team_models: list[str], llm_router: object, quota_setting: object = True
 ) -> None:
-    from litellm.proxy._types import LiteLLM_TeamTable
     from litellm_enterprise.proxy.management_endpoints import project_endpoints as pe
+
+    from litellm.proxy._types import LiteLLM_TeamTable
 
     team = LiteLLM_TeamTable(team_id="test-team", models=team_models)
     monkeypatch.setattr(litellm.proxy.proxy_server, "prisma_client", mock.MagicMock())
@@ -856,9 +849,7 @@ async def test_new_project_flag_on_missing_rpm_tpm_returns_400(monkeypatch):
 
 
 def _project_update_mocks(monkeypatch, stored_metadata: dict, team_id: str | None = None) -> mock.MagicMock:
-    existing_row = mock.MagicMock(
-        team_id=team_id, budget_id=None, object_permission_id=None, metadata=stored_metadata
-    )
+    existing_row = mock.MagicMock(team_id=team_id, budget_id=None, object_permission_id=None, metadata=stored_metadata)
     mock_prisma = mock.MagicMock()
     mock_prisma.jsonify_object = lambda data: data
     mock_prisma.db.litellm_projecttable.find_unique = mock.AsyncMock(return_value=existing_row)
@@ -1247,6 +1238,7 @@ def _quota_error(
     from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
         _raise_on_missing_project_model_quota,
     )
+
     from litellm.proxy.management_helpers.model_quota_policy import parse_model_quota_setting
 
     policy: Final = parse_model_quota_setting(setting)
@@ -1378,7 +1370,9 @@ def test_quota_policy_team_model_beside_a_shared_one_needs_both_routes_limits():
     assert error is not None and "media-latest (model_tpm_limit)" in error
 
 
-@pytest.mark.parametrize("setting", [True, "true", "false", 1, ["rpm"], {"enabled": True}, {"provider": {"runwayml": []}}])
+@pytest.mark.parametrize(
+    "setting", [True, "true", "false", 1, ["rpm"], {"enabled": True}, {"provider": {"runwayml": []}}]
+)
 def test_quota_setting_truthy_non_policy_value_still_requires_both_limits(setting: object):
     error: Final = _quota_error(["runway-gen4-turbo"], setting=setting)
     assert error is not None
@@ -1398,6 +1392,7 @@ def test_update_quota_policy_resolves_providers_for_the_resulting_models():
     from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
         _raise_on_missing_project_model_quota_on_update,
     )
+
     from litellm.proxy.management_helpers.model_quota_policy import parse_model_quota_setting
 
     policy: Final = parse_model_quota_setting(_CUSTOMER_QUOTA_POLICY)
@@ -2043,7 +2038,9 @@ def _team_admins_manage_projects(monkeypatch: pytest.MonkeyPatch, prisma: mock.M
         team_id="test-team", members_with_roles=[Member(user_id=_TEAM_ADMIN.user_id, role="admin")]
     )
     prisma.db.litellm_teamtable.find_unique = mock.AsyncMock(return_value=team)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "general_settings", {"team_admin_editable_team_fields": ["projects"]})
+    monkeypatch.setattr(
+        litellm.proxy.proxy_server, "general_settings", {"team_admin_editable_team_fields": ["projects"]}
+    )
 
 
 @pytest.mark.asyncio

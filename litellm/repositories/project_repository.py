@@ -6,9 +6,11 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Final
 
 from litellm.models.project import LiteLLM_ProjectTable
+from litellm.repositories import rust_database
 from litellm.repositories.base_repository import BaseRepository
 from litellm.repositories.prisma_protocols import TableActions
 from litellm.repositories.table_repositories import PrismaTableRepository
+from litellm.rust_bridge._native import RustProjectRepository
 
 if TYPE_CHECKING:
     from prisma import models as prisma_models
@@ -28,6 +30,15 @@ class ProjectRepository(BaseRepository[LiteLLM_ProjectTable]):
     @property
     def model_class(self) -> type[LiteLLM_ProjectTable]:
         return LiteLLM_ProjectTable
+
+    async def find_for_auth(self, project_id: str) -> LiteLLM_ProjectTable | None:
+        """The project with its budget row, read by the Rust repository; None when no Rust database is open."""
+        repository: Final = rust_database.repository(RustProjectRepository)
+        return (
+            None
+            if repository is None
+            else rust_database.decode(LiteLLM_ProjectTable, await repository.find(project_id))
+        )
 
     async def find_by_id(self, project_id: str, id_field: str = "project_id") -> LiteLLM_ProjectTable | None:
         return await super().find_by_id(project_id, id_field)
