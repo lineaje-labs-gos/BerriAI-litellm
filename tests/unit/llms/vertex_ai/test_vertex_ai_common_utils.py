@@ -830,12 +830,6 @@ def test_build_vertex_schema_array_branch_missing_items_in_anyof():
 
 
 def test_build_vertex_schema_tuple_form_items_become_anyof():
-    """
-    Regression: tuple-form `items` (`"items": [{...}, {...}]`, valid JSON Schema)
-    used to crash the transform with `'list' object has no attribute 'get'`,
-    surfacing as litellm.APIConnectionError on every vertex_ai request carrying
-    such a tool schema.
-    """
     from litellm.llms.vertex_ai.common_utils import _build_vertex_schema
 
     parameters = {
@@ -856,8 +850,6 @@ def test_build_vertex_schema_tuple_form_items_become_anyof():
 
 
 def test_build_vertex_schema_tuple_form_items_nested_in_anyof_branch():
-    """Tuple-form `items` on an anyOf branch is reachable only if the walk
-    descends into anyOf, which is where the original crash was raised."""
     from litellm.llms.vertex_ai.common_utils import _build_vertex_schema
 
     parameters = {
@@ -879,8 +871,6 @@ def test_build_vertex_schema_tuple_form_items_nested_in_anyof_branch():
 
 
 def test_build_vertex_schema_empty_tuple_form_items():
-    """An empty `items: []` has no branches to fold into anyOf, so it takes the
-    same path as `items: {}` rather than raising on a zero-length anyOf."""
     from litellm.llms.vertex_ai.common_utils import _build_vertex_schema
 
     parameters = {

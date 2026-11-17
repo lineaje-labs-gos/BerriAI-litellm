@@ -1200,12 +1200,7 @@ def filter_schema_fields(schema_dict: dict[str, object], valid_fields: set[str],
     return result
 
 
-def _normalize_tuple_items(schema: dict[str, Any], depth: int = 0) -> None:
-    """Rewrite tuple-form `items` (a list of sub-schemas) as `anyOf`.
-
-    JSON Schema allows it, Vertex's Schema type does not, and every walker below
-    reads `items` as a single sub-schema, so a list there crashes them.
-    """
+def _normalize_tuple_items(schema: dict[str, JsonValue], depth: int = 0) -> None:
     if depth > DEFAULT_MAX_RECURSE_DEPTH:
         raise ValueError(f"Max depth of {DEFAULT_MAX_RECURSE_DEPTH} exceeded while processing schema.")
 
@@ -1216,18 +1211,19 @@ def _normalize_tuple_items(schema: dict[str, Any], depth: int = 0) -> None:
         else:
             schema.pop("items")
 
-    properties: Final = schema.get("properties", None)
-    if properties is not None:
+    properties: Final = schema.get("properties")
+    if isinstance(properties, dict):
         for value in properties.values():
-            _normalize_tuple_items(value, depth=depth + 1)
+            if isinstance(value, dict):
+                _normalize_tuple_items(value, depth=depth + 1)
 
-    items: Final = schema.get("items", None)
-    if items is not None:
+    items: Final = schema.get("items")
+    if isinstance(items, dict):
         _normalize_tuple_items(items, depth=depth + 1)
 
     for key in ("anyOf", "oneOf", "allOf"):
-        values = schema.get(key, None)
-        if values is not None and isinstance(values, list):
+        values: Final = schema.get(key)
+        if isinstance(values, list):
             for value in values:
                 if isinstance(value, dict):
                     _normalize_tuple_items(value, depth=depth + 1)
