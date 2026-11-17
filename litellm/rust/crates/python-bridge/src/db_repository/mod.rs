@@ -4,11 +4,21 @@
 mod jwt_key_mapping;
 mod key;
 mod model_access_group;
+mod organization;
+mod team;
+mod team_membership;
 
 pub(crate) use jwt_key_mapping::RustJwtKeyMappingRepository;
 pub(crate) use key::RustKeyRepository;
 pub(crate) use model_access_group::RustModelAccessGroupRepository;
+pub(crate) use organization::RustOrganizationRepository;
+pub(crate) use team::RustTeamRepository;
+pub(crate) use team_membership::RustTeamMembershipRepository;
 
 fn json<T: serde::Serialize>(value: Option<&T>) -> pyo3::PyResult<Option<String>> {
     value.map(litellm_host_python::json_dumps).transpose()
+}
+
+fn json_list<T: serde::Serialize>(values: &[T]) -> pyo3::PyResult<Vec<String>> {
+    values.iter().map(litellm_host_python::json_dumps).collect()
 }

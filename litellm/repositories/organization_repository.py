@@ -6,9 +6,11 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Final
 
 from litellm.models.organization import LiteLLM_OrganizationTable
+from litellm.repositories import rust_database
 from litellm.repositories.base_repository import BaseRepository
 from litellm.repositories.prisma_protocols import TableActions
 from litellm.repositories.table_repositories import PrismaTableRepository
+from litellm.rust_bridge._native import RustOrganizationRepository
 
 if TYPE_CHECKING:
     from prisma import models as prisma_models
@@ -33,6 +35,22 @@ class OrganizationRepository(BaseRepository[LiteLLM_OrganizationTable]):
         self, organization_id: str, id_field: str = "organization_id"
     ) -> LiteLLM_OrganizationTable | None:
         return await super().find_by_id(organization_id, id_field)
+
+    async def find_for_auth(
+        self, organization_id: str, *, include_budget_table: bool = False
+    ) -> LiteLLM_OrganizationTable | None:
+        """Read an organization for auth, with its budget row when asked."""
+        found: Final = await rust_database.required_repository(RustOrganizationRepository).find(
+            organization_id, include_budget_table=include_budget_table
+        )
+        return rust_database.decode(LiteLLM_OrganizationTable, found)
+
+    async def find_for_auth_by_alias(self, organization_alias: str) -> list[LiteLLM_OrganizationTable]:
+        """Read at most two organizations with this alias for auth, so the caller can refuse an ambiguous alias."""
+        found: Final = await rust_database.required_repository(RustOrganizationRepository).find_by_alias(
+            organization_alias
+        )
+        return [LiteLLM_OrganizationTable.model_validate_json(organization) for organization in found]
 
     async def find_by_alias(self, organization_alias: str) -> LiteLLM_OrganizationTable | None:
         """Find an organization by alias."""

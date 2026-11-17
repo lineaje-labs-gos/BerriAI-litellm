@@ -17,11 +17,16 @@ from pydantic import TypeAdapter
 from litellm.litellm_core_utils.core_helpers import require_attributes
 from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
 from litellm.models.access_group import LiteLLM_AccessGroupTable
+from litellm.models.team_membership import LiteLLM_TeamMembership
 from litellm.repositories import rust_database
 from litellm.repositories.accounting_delivery_repository import LedgerDatabase, LedgerTransaction
 from litellm.repositories.chunked_in import find_many_in
 from litellm.repositories.prisma_protocols import RowT_co, TableActions
-from litellm.rust_bridge._native import RustJwtKeyMappingRepository, RustModelAccessGroupRepository
+from litellm.rust_bridge._native import (
+    RustJwtKeyMappingRepository,
+    RustModelAccessGroupRepository,
+    RustTeamMembershipRepository,
+)
 
 if TYPE_CHECKING:
     from prisma import models as prisma_models  # noqa: F401  # used by quoted base-class subscripts
@@ -263,6 +268,15 @@ class ClaudeCodePluginRepository(PrismaTableRepository["prisma_models.LiteLLM_Cl
 
 class TeamMembershipRepository(PrismaTableRepository["prisma_models.LiteLLM_TeamMembership"]):
     table_name = "litellm_teammembership"
+
+    async def find_for_auth(
+        self, user_id: str, team_id: str, *, use_writer: bool = False
+    ) -> LiteLLM_TeamMembership | None:
+        """Read a user's membership in a team with its member budget, from the writer when asked."""
+        found: Final = await rust_database.required_repository(RustTeamMembershipRepository).find(
+            user_id, team_id, use_writer=use_writer
+        )
+        return rust_database.decode(LiteLLM_TeamMembership, found)
 
 
 class EndUserRepository(PrismaTableRepository["prisma_models.LiteLLM_EndUserTable"]):

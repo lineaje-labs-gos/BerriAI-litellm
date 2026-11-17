@@ -604,3 +604,23 @@ def in_operator_error(value: Container[object]) -> str:
     with pytest.raises(TypeError) as native:
         _ = "key" in value
     return str(native.value)
+
+
+@pytest.fixture(autouse=True)
+def team_and_organization_repositories_find_no_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Unit tests never open a Rust database, so team, team membership and organization reads find no row
+    unless the test installs rows through ``tests.unit.proxy.rust_auth_stores``."""
+    from litellm.repositories import rust_database
+    from litellm.rust_bridge._native import RustOrganizationRepository, RustTeamMembershipRepository, RustTeamRepository
+    from tests.unit.proxy.rust_auth_stores import RustAuthStores
+
+    empty: Final = RustAuthStores()
+    fakes: Final[dict[object, object]] = {
+        RustTeamRepository: empty.team,
+        RustTeamMembershipRepository: empty.team_membership,
+        RustOrganizationRepository: empty.organization,
+    }
+    real_repository: Final = rust_database.repository
+    monkeypatch.setattr(
+        rust_database, "repository", lambda kind: fakes[kind] if kind in fakes else real_repository(kind)
+    )

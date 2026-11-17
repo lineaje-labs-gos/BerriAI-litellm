@@ -6,6 +6,7 @@ macro_rules_attribute::attribute_alias! {
         #[derive(Clone, Debug, PartialEq, sqlx::FromRow)];
 }
 
+mod budget;
 mod daily_spend;
 mod deadline;
 mod end_user;
@@ -13,18 +14,23 @@ mod endpoint;
 mod error;
 mod failure;
 mod health;
+mod joined_budget;
 mod jwt_key_mapping;
 mod key;
 mod model_access_group;
 mod observe;
+mod organization;
 mod pools;
 mod raw_json;
 mod spend;
 mod statements;
+mod team;
+mod team_membership;
 #[cfg(test)]
 mod test_support;
 pub mod utc_timestamp;
 
+pub use budget::{Budget, find_budget};
 pub use daily_spend::{DailyEndUserRow, DailyTeamRow, DailyUserRow};
 pub use deadline::within;
 pub use end_user::{EndUser, RateLimits, find_end_user};
@@ -38,6 +44,7 @@ pub use model_access_group::{
     ModelAccessGroupBudgetRow, find_model_access_group_budgets, model_access_group_names,
 };
 pub use observe::{Call, Observer, Outcome, QueryEvent, observe};
+pub use organization::{Organization, find_organization, find_organizations_by_alias};
 pub use pools::Pools;
 pub use raw_json::RawJson;
 pub use spend::{
@@ -47,3 +54,5 @@ pub use spend::{
     upsert_daily_team_spend, upsert_daily_user_spend,
 };
 pub use statements::Statements;
+pub use team::{Team, TeamModelAliases, find_team, find_teams_by_alias};
+pub use team_membership::{TeamMembership, find_team_membership};

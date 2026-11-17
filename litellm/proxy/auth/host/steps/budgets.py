@@ -110,13 +110,9 @@ class BudgetChecks:
         cached: Final = await self.user_api_key_cache.async_get_cache(key=cache_key, model_type=LiteLLM_TeamMembership)
         if cached is not None:
             return cached
-        db_member: Final = await TeamMembershipRepository(prisma_client).table.find_first(
-            where={"user_id": user_id, "team_id": team_id},
-            include={"litellm_budget_table": True},
-        )
-        if db_member is None:
+        membership: Final = await TeamMembershipRepository(prisma_client).find_for_auth(user_id, team_id)
+        if membership is None:
             return None
-        membership: Final = LiteLLM_TeamMembership.model_validate(db_member.model_dump())
         await self.user_api_key_cache.async_set_cache(
             key=cache_key, value=membership, model_type=LiteLLM_TeamMembership, ttl=5
         )
